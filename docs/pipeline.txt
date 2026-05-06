@@ -1,0 +1,24 @@
+ETL overview (this repository). Details: docs/data_pipeline.md
+
+Extract
+  Hugging Face JSONL (reviews + product metadata) -> data/raw/ via etl/fetch_review_dataset.py
+  Optional reuse of existing files; streaming download; no manual browser steps.
+  Full Appliances split is ~2.1M review lines and ~1.1 GiB raw total: remove JSONL_LINE_LIMIT (e.g. make pipeline-full), delete or FORCE_RAW_REDOWNLOAD partial raw files first.
+
+Transform (staging)
+  JSONL -> CSV under data/staging/ with schema aligned to Postgres COPY (types, timestamps, JSON blobs as text, dedupe on (parent_asin, review_id)).
+  etl/validate_staged_csv.py checks sizes, keys, and non-empty staging outputs.
+
+Load (relational warehouse)
+  db/apply_migrations.py or db/load_into_postgres.py: versioned DDL (Citus), TRUNCATE + COPY into metadata and reviews.
+
+Export (data lake)
+  export/sqoop_parquet_export.sh: JDBC read from Postgres -> HDFS Parquet (Snappy) for Spark/Hive downstream.
+  export/hdfs_upload_staging.sh: copies data/staging/*.csv into HDFS under <HDFS_WAREHOUSE_BASE>/staging/ (native hdfs or Docker client).
+  export/hdfs_apply_replication.sh: if HDFS_REPLICATION is set, runs hdfs dfs -setrep -R -w on HDFS_WAREHOUSE_BASE (shared clusters with tight disk).
+
+Orchestration
+  bin/run_pipeline.sh runs the ordered steps; repo root run_pipeline.sh forwards to bin/.
+
+Reference DDL (not executed automatically)
+  reference/schema/*.sql mirrors migrations/versions/*/deploy/ for reading and diffs.

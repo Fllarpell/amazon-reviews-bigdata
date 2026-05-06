@@ -1,0 +1,9 @@
+Title: Scalable customer review analytics and rating classification (Amazon Appliances)
+
+Summary: End-to-end distributed pipeline for mining Amazon Appliances reviews and product metadata, supporting satisfaction drivers, pricing signals, and multiclass rating sentiment (engineered target classes downstream).
+
+Dataset: McAuley-Lab / Amazon-Reviews-2023 — Appliances subset (JSON Lines on Hugging Face). Raw objects are staged as CSV for PostgreSQL bulk load, then exported to columnar Parquet on HDFS for analytics and machine learning.
+
+Schema: Reference DDL is under reference/schema/ (01–06). Applied migrations live in migrations/versions/<id>/ (deploy/, revert.sql, verify.sql); ledger pipeline.schema_migrations. Add 002_* with the same three artifacts; never edit deploy/ for a version already applied in a shared database.
+
+Docs: see README.md (Documentation table) and team34.pdf for the formal team specification.
