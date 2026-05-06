@@ -24,6 +24,7 @@ PASS_FILE="${ROOT}/secrets/.psql.pass"
 PASS="$(head -n 1 "${PASS_FILE}")"
 DB_USER="${PGUSER:-pipeline_app}"
 DB_HOST="${PGHOST:-localhost}"
+DB_PORT="${PGPORT:-5432}"
 DB_NAME="${PGDATABASE:-review_analytics}"
 WAREHOUSE="${HDFS_WAREHOUSE_BASE:-project/warehouse}"
 
@@ -32,7 +33,7 @@ if [[ "$use_docker" == true ]]; then
     echo "Docker network ${HADOOP_NET} not found. Run: make hadoop-up && make hadoop-build-sqoop" >&2
     exit 1
   fi
-  JDBC_URL="${JDBC_URL:-jdbc:postgresql://${SQOOP_PG_HOST}:5432/${DB_NAME}}"
+  JDBC_URL="${JDBC_URL:-jdbc:postgresql://${SQOOP_PG_HOST}:${DB_PORT}/${DB_NAME}}"
   echo "Sqoop via Docker (${SQOOP_IMAGE}), JDBC ${JDBC_URL}"
   echo "clearing HDFS targets under ${WAREHOUSE}"
   "${HADOOP_COMPOSE[@]}" exec -T namenode hdfs dfs -rm -r -skipTrash "${WAREHOUSE}/reviews" 2>/dev/null || true
@@ -80,7 +81,7 @@ if ! command -v sqoop >/dev/null 2>&1; then
   exit 1
 fi
 
-JDBC_URL="${JDBC_URL:-jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}}"
+JDBC_URL="${JDBC_URL:-jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}}"
 
 echo "clearing HDFS targets under ${WAREHOUSE}"
 hdfs dfs -rm -r -skipTrash "${WAREHOUSE}/reviews" 2>/dev/null || true
