@@ -26,11 +26,11 @@ run_stage2_beeline() {
 
   local hive_user="${HIVE_USER:-${USER:-team34}}"
   local hive_jdbc_url="${HIVE_JDBC_URL:-jdbc:hive2://hadoop-03.uni.innopolis.ru:10001/default}"
-  local -a beeline_base=(beeline -u "${hive_jdbc_url}" -n "${hive_user}")
-
-  if [[ -n "${HIVE_PASSWORD:-}" ]]; then
-    beeline_base+=(-p "${HIVE_PASSWORD}")
+  if [[ -z "${HIVE_PASSWORD:-}" ]]; then
+    echo "HIVE_PASSWORD is required for STAGE2_ENGINE=beeline to avoid interactive beeline prompts." >&2
+    exit 1
   fi
+  local -a beeline_base=(beeline -u "${hive_jdbc_url}" -n "${hive_user}" -p "${HIVE_PASSWORD}")
 
   local -a hiveconf_args=(
     --hiveconf "hive_db_name=${HIVE_DB_NAME}"
@@ -42,13 +42,16 @@ run_stage2_beeline() {
 
   mkdir -p output
   echo "Stage 2: Hive DDL + EDA via Beeline"
+  echo "Running stage2_hive_init.hql..."
   "${beeline_base[@]}" "${hiveconf_args[@]}" -f "${ROOT}/sql/stage2_hive_init.hql" | tee output/hive_results.txt
 
   for query_id in q1 q2 q3; do
     local query_text
     query_text="$(tr '\n' ' ' < "${ROOT}/sql/${query_id}.hql")"
+    echo "Running ${query_id}.hql..."
     "${beeline_base[@]}" --outputformat=csv2 --showHeader=true \
       -e "USE ${HIVE_DB_NAME}; ${query_text}" > "output/${query_id}.csv"
+    echo "Saved output/${query_id}.csv"
   done
 }
 
