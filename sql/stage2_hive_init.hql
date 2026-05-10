@@ -41,7 +41,7 @@ CREATE EXTERNAL TABLE metadata_ext (
     title STRING,
     average_rating DOUBLE,
     rating_number INT,
-    price DECIMAL(12,2),
+    price STRING,
     store STRING,
     features_text STRING,
     description_text STRING,
@@ -131,7 +131,11 @@ SELECT
     title,
     average_rating,
     rating_number,
-    price,
+    CASE
+        WHEN price IS NULL THEN NULL
+        WHEN trim(price) = '' THEN NULL
+        ELSE CAST(regexp_replace(price, '[^0-9\\.-]', '') AS DECIMAL(12,2))
+    END AS price,
     store,
     features_text,
     description_text,
