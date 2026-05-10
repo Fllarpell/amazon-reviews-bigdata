@@ -4,7 +4,7 @@ import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -50,7 +50,7 @@ def _read_query(path: Path) -> str:
     return query
 
 
-def _replace_hiveconf_tokens(content: str, mapping: dict[str, str]) -> str:
+def _replace_hiveconf_tokens(content: str, mapping: Dict[str, str]) -> str:
     replaced = content
     for key, value in mapping.items():
         replaced = replaced.replace(f"${{hiveconf:{key}}}", value)
