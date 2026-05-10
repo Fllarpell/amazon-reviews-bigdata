@@ -45,13 +45,38 @@ run_stage2_beeline() {
   echo "Running stage2_hive_init.hql..."
   "${beeline_base[@]}" "${hiveconf_args[@]}" -f "${ROOT}/sql/stage2_hive_init.hql" | tee output/hive_results.txt
 
-  for query_id in q1 q2 q3; do
-    local query_text
-    query_text="$(tr '\n' ' ' < "${ROOT}/sql/${query_id}.hql")"
+  run_eda_query() {
+    local query_id="$1"
+    local query_file="${ROOT}/sql/${query_id}.hql"
+    local output_file="output/${query_id}.csv"
+    local tmp_query_file
+    local started_at
+    local ended_at
+
+    if [[ ! -f "${query_file}" ]]; then
+      echo "Missing query file: ${query_file}" >&2
+      exit 1
+    fi
+
+    tmp_query_file="$(mktemp)"
+    started_at="$(date +%s)"
+    {
+      printf 'USE %s;\n' "${HIVE_DB_NAME}"
+      cat "${query_file}"
+      printf '\n;\n'
+    } > "${tmp_query_file}"
+
     echo "Running ${query_id}.hql..."
-    "${beeline_base[@]}" --outputformat=csv2 --showHeader=true \
-      -e "USE ${HIVE_DB_NAME}; ${query_text}" > "output/${query_id}.csv"
-    echo "Saved output/${query_id}.csv"
+    "${beeline_base[@]}" --silent=true --showHeader=true --outputformat=csv2 \
+      -f "${tmp_query_file}" > "${output_file}"
+    rm -f "${tmp_query_file}"
+
+    ended_at="$(date +%s)"
+    echo "Saved ${output_file} (elapsed: $((ended_at - started_at))s)"
+  }
+
+  for query_id in q1 q2 q3; do
+    run_eda_query "${query_id}"
   done
 }
 
