@@ -3,6 +3,11 @@ LOCATION '${hiveconf:hive_db_location}';
 
 USE ${hiveconf:hive_db_name};
 
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+SET hive.exec.max.dynamic.partitions=5000;
+SET hive.exec.max.dynamic.partitions.pernode=2000;
+
 DROP TABLE IF EXISTS ${hiveconf:hive_ml_features_table};
 CREATE TABLE ${hiveconf:hive_ml_features_table} (
     review_id STRING,
