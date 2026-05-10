@@ -21,7 +21,15 @@ elif ! command -v sqoop >/dev/null 2>&1; then
 fi
 
 PASS_FILE="${ROOT}/secrets/.psql.pass"
-PASS="$(head -n 1 "${PASS_FILE}")"
+if [[ ! -f "${PASS_FILE}" ]]; then
+  echo "Password file not found: ${PASS_FILE}" >&2
+  exit 1
+fi
+read -r PASS < "${PASS_FILE}" || true
+if [[ -z "${PASS}" ]]; then
+  echo "Password file is empty: ${PASS_FILE}" >&2
+  exit 1
+fi
 DB_USER="${PGUSER:-pipeline_app}"
 DB_HOST="${PGHOST:-localhost}"
 DB_PORT="${PGPORT:-5432}"

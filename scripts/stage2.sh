@@ -4,12 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}"
 
-if [[ -f "${ROOT}/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${ROOT}/.env"
-  set +a
-fi
+source "${ROOT}/scripts/common.sh"
+load_dotenv "${ROOT}"
 
 STAGE2_ENGINE="${STAGE2_ENGINE:-beeline}"
 HIVE_DB_NAME="${HIVE_DB_NAME:-team34_projectdb}"
@@ -59,6 +55,7 @@ run_stage2_beeline() {
     fi
 
     tmp_query_file="$(mktemp)"
+    trap 'rm -f "${tmp_query_file}"' RETURN
     started_at="$(date +%s)"
     {
       printf 'USE %s;\n' "${HIVE_DB_NAME}"
@@ -70,6 +67,7 @@ run_stage2_beeline() {
     "${beeline_base[@]}" --silent=true --showHeader=true --outputformat=csv2 \
       -f "${tmp_query_file}" > "${output_file}"
     rm -f "${tmp_query_file}"
+    trap - RETURN
 
     ended_at="$(date +%s)"
     echo "Saved ${output_file} (elapsed: $((ended_at - started_at))s)"
@@ -82,33 +80,11 @@ run_stage2_beeline() {
 
 run_stage2_spark() {
   local -a PYTHON_CMD=()
-  if [[ -n "${PYTHON:-}" ]]; then
-    PYTHON_CMD=("${PYTHON}")
-  elif [[ -x "${ROOT}/.venv/bin/python" ]]; then
-    PYTHON_CMD=("${ROOT}/.venv/bin/python")
-  elif command -v py >/dev/null 2>&1; then
-    PYTHON_CMD=(py -3)
-  elif command -v py.exe >/dev/null 2>&1; then
-    PYTHON_CMD=(py.exe -3)
-  elif command -v python3 >/dev/null 2>&1; then
-    PYTHON_CMD=(python3)
-  else
-    echo "No Python interpreter found (tried .venv/bin/python, python3, py)." >&2
-    exit 1
-  fi
+  resolve_python_cmd "${ROOT}"
+  PYTHON_CMD=("${PYTHON_CMD[@]}")
 
   local script_path="${ROOT}/scripts/stage2_spark_eda.py"
-  if [[ "${PYTHON_CMD[0]}" =~ ^(py|py\.exe|python\.exe)$ ]]; then
-    if command -v cygpath >/dev/null 2>&1; then
-      script_path="$(cygpath -w "${script_path}")"
-    elif [[ "${script_path}" == /mnt/* ]]; then
-      local drive_letter
-      local suffix
-      drive_letter="$(echo "${script_path}" | cut -d'/' -f3 | tr '[:lower:]' '[:upper:]')"
-      suffix="$(echo "${script_path}" | cut -d'/' -f4- | sed 's#/#\\\\#g')"
-      script_path="${drive_letter}:\\${suffix}"
-    fi
-  fi
+  script_path="$(python_script_path_for_platform "${script_path}")"
 
   echo "Stage 2: Hive DDL + Spark SQL EDA"
   "${PYTHON_CMD[@]}" "${script_path}" \

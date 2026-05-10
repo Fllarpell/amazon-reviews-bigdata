@@ -4,12 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}"
 
-if [[ -f "${ROOT}/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${ROOT}/.env"
-  set +a
-fi
+source "${ROOT}/scripts/common.sh"
+load_dotenv "${ROOT}"
 
 echo "Stage 1: data collection"
 bash "${ROOT}/scripts/data_collection.sh"
