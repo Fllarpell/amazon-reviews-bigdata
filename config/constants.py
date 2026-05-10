@@ -58,3 +58,23 @@ REQUIRED_REVIEW_JSON_KEYS = (
     "timestamp",
 )
 REQUIRED_META_JSON_KEYS = ("parent_asin", "title")
+
+DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+ML_INPUT_REVIEWS_CSV = DATA_STAGING_DIR / STAGING_REVIEWS_CSV
+ML_OUTPUT_PROCESSED_CSV = DATA_PROCESSED_DIR / "ml_dataset.csv"
+ML_OUTPUT_TRAIN_JSON = PROJECT_ROOT / "data" / "train.json"
+ML_OUTPUT_TEST_JSON = PROJECT_ROOT / "data" / "test.json"
+
+ML_RANDOM_SEED = int(os.environ.get("ML_RANDOM_SEED", "34"))
+ML_TRAIN_RATIO = float(os.environ.get("ML_TRAIN_RATIO", "0.8"))
+ML_ALLOWED_RATINGS = (1, 2, 3, 4, 5)
+ML_REQUIRED_COLUMNS = (
+    "review_id",
+    "parent_asin",
+    "user_id",
+    "rating",
+    "review_text",
+    "review_timestamp",
+)
+ML_MIN_REVIEW_TEXT_LEN = int(os.environ.get("ML_MIN_REVIEW_TEXT_LEN", "5"))
+ML_MAX_REVIEW_TEXT_LEN = int(os.environ.get("ML_MAX_REVIEW_TEXT_LEN", "5000"))

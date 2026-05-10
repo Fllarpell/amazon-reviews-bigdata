@@ -10,10 +10,6 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | [docs/data_pipeline.md](docs/data_pipeline.md) | End-to-end data flow, each stage, idempotency |
 | [docs/database_and_migrations.md](docs/database_and_migrations.md) | Citus, initdb, migrations ledger, scripts |
 | [docs/hadoop_sqoop_and_hdfs.md](docs/hadoop_sqoop_and_hdfs.md) | Local Docker Hadoop vs cluster, Sqoop, HDFS scripts |
-| [docs/submission_and_cluster.md](docs/submission_and_cluster.md) | Moodle submission, Innopolis cluster, replication / trash |
-| [docs/stage1_gap_matrix.md](docs/stage1_gap_matrix.md) | Stage 1 checklist compliance matrix |
-| [docs/stage1_summary.md](docs/stage1_summary.md) | Stage 1 implementation summary |
-| [docs/stage2_summary.md](docs/stage2_summary.md) | Stage 2 implementation summary and Superset manual steps |
 
 ## Layout
 
@@ -21,10 +17,12 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 |------|------|
 | `scripts/stage1.sh` | Stage 1 entrypoint used by grader (`bash scripts/stage1.sh`) |
 | `scripts/stage2.sh` | Stage 2 entrypoint used by grader (`bash scripts/stage2.sh`) |
+| `scripts/stage3_prep.sh` | Data preparation pipeline before Stage 3 ML |
 | `scripts/data_collection.sh` | Stage 1 data collection/validation step |
 | `scripts/data_storage.sh` | Stage 1 PostgreSQL schema/load step |
 | `scripts/data_ingestion.sh` | Stage 1 Sqoop/HDFS ingestion step |
 | `scripts/stage2_spark_eda.py` | Stage 2 Spark SQL EDA runner (`q1..q3`) |
+| `scripts/stage3_data_prep.py` | Stage 3 prep runner (cleaning, validation, train/test split) |
 | `bin/run_pipeline.sh` | Ordered orchestration (legacy-compatible end-to-end wrapper) |
 | `run_pipeline.sh` | Thin wrapper that calls `bin/run_pipeline.sh` |
 | `config/constants.py` | Paths, URLs, thresholds, Postgres/HDFS env |
@@ -80,6 +78,12 @@ Run Stage 2:
 bash scripts/stage2.sh
 ```
 
+Run Stage 3 data preparation:
+
+```bash
+bash scripts/stage3_prep.sh
+```
+
 ### Full dataset
 
 Appliances JSONL from Hugging Face is large (~2.1M review lines, ~1.1 GiB raw combined). To replace any truncated `data/raw/*.jsonl` and run end-to-end without `JSONL_LINE_LIMIT`:
@@ -104,7 +108,7 @@ make pipeline-all
 
 `pipeline-all` runs `docker-up` (Citus), `hadoop-up`, builds the Sqoop image, then `bin/run_pipeline.sh` with **`USE_DOCKER_HADOOP=1`** (Sqoop and HDFS CSV upload use containers; Postgres stays on the host port from `.env`). For Postgres inside Docker on the same machine, the default **`SQOOP_PG_HOST=host.docker.internal`** is set in the export script; on Linux this relies on Docker’s **`host-gateway`** mapping (`docker run --add-host=host.docker.internal:host-gateway`). If JDBC from the Sqoop container cannot reach Postgres, set **`SQOOP_PG_HOST`** to your host LAN IP.
 
-On the **university cluster**, use **native** `hdfs` / `sqoop` with **`USE_DOCKER_HADOOP` unset**, set **`HDFS_WAREHOUSE_BASE`** to your team path (e.g. `/user/team0/project/warehouse`), and see [docs/submission_and_cluster.md](docs/submission_and_cluster.md) for replication, trash, and Moodle submission.
+On the cluster, use **native** `hdfs` / `sqoop` with **`USE_DOCKER_HADOOP` unset** and set **`HDFS_WAREHOUSE_BASE`** to your team path (e.g. `/user/team34/project/warehouse`).
 
 ## Environment
 

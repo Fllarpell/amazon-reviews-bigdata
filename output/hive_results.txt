@@ -1,4 +1,0 @@
-=== Stage 2 Hive init (Spark SQL) ===
-hive_db_name=teamx_projectdb
-hive_db_location=project/hive/warehouse/teamx_projectdb
-hdfs_warehouse_base=project/warehouse

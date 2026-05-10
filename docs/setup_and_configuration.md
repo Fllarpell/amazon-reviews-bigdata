@@ -1,6 +1,6 @@
 # Setup and configuration
 
-See also: [data_pipeline.md](data_pipeline.md) · [database_and_migrations.md](database_and_migrations.md) · [hadoop_sqoop_and_hdfs.md](hadoop_sqoop_and_hdfs.md) · [submission_and_cluster.md](submission_and_cluster.md)
+See also: [data_pipeline.md](data_pipeline.md) · [database_and_migrations.md](database_and_migrations.md) · [hadoop_sqoop_and_hdfs.md](hadoop_sqoop_and_hdfs.md)
 
 ## Requirements
 

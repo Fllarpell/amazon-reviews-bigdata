@@ -40,7 +40,7 @@ Reviews: keep rows whose `parent_asin` exists in metadata; dedupe on **`parent_a
 Sqoop JDBC → `HDFS_WAREHOUSE_BASE/reviews` and `/metadata` as Parquet with Snappy.
 Staging CSV is copied to `/staging/`. Details: [hadoop_sqoop_and_hdfs.md](hadoop_sqoop_and_hdfs.md).
 
-Local Docker uses a relative warehouse path under the HDFS user home; on a shared cluster set an absolute path such as `/user/teamN/project/warehouse`.
+Local Docker uses a relative warehouse path under the HDFS user home; on a shared cluster set an absolute path such as `/user/team34/project/warehouse`.
 
 ## Re-runs
 

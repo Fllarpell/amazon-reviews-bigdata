@@ -23,14 +23,11 @@ elif command -v py.exe >/dev/null 2>&1; then
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON_CMD=(python3)
 else
-  echo "No Python interpreter found (tried .venv/bin/python, python3, py)." >&2
+  echo "No Python interpreter found (tried .venv/bin/python, py, python3)." >&2
   exit 1
 fi
 
-HIVE_DB_NAME="${HIVE_DB_NAME:-team34_projectdb}"
-HIVE_DB_LOCATION="${HIVE_DB_LOCATION:-project/hive/warehouse/team34_projectdb}"
-SCRIPT_PATH="${ROOT}/scripts/stage2_spark_eda.py"
-
+SCRIPT_PATH="${ROOT}/scripts/stage3_data_prep.py"
 if [[ "${PYTHON_CMD[0]}" =~ ^(py|py\.exe|python\.exe)$ ]]; then
   if command -v cygpath >/dev/null 2>&1; then
     SCRIPT_PATH="$(cygpath -w "${SCRIPT_PATH}")"
@@ -41,22 +38,20 @@ if [[ "${PYTHON_CMD[0]}" =~ ^(py|py\.exe|python\.exe)$ ]]; then
   fi
 fi
 
-echo "Stage 2: Hive DDL + Spark SQL EDA"
-"${PYTHON_CMD[@]}" "${SCRIPT_PATH}" \
-  --mode all \
-  --hive-db-name "${HIVE_DB_NAME}" \
-  --hive-db-location "${HIVE_DB_LOCATION}"
+echo "Stage 3 prep: data profiling + cleaning + train/test split"
+"${PYTHON_CMD[@]}" "${SCRIPT_PATH}"
 
-for csv_file in output/q1.csv output/q2.csv output/q3.csv; do
-  if [[ ! -s "${csv_file}" ]]; then
-    echo "Missing or empty ${csv_file}" >&2
+for artifact in \
+  "data/processed/ml_dataset.csv" \
+  "data/train.json" \
+  "data/test.json" \
+  "output/data_profile_before.csv" \
+  "output/data_profile_after.csv" \
+  "output/data_quality_report.txt"; do
+  if [[ ! -s "${artifact}" ]]; then
+    echo "Missing or empty artifact: ${artifact}" >&2
     exit 1
   fi
 done
 
-if [[ ! -s output/hive_results.txt ]]; then
-  echo "Missing or empty output/hive_results.txt" >&2
-  exit 1
-fi
-
-echo "Stage 2 completed"
+echo "Stage 3 prep completed"

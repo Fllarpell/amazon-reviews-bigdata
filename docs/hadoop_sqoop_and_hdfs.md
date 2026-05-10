@@ -1,6 +1,6 @@
 # Hadoop, Sqoop, and HDFS
 
-See also: [setup_and_configuration.md](setup_and_configuration.md) · [data_pipeline.md](data_pipeline.md) · [submission_and_cluster.md](submission_and_cluster.md)
+See also: [setup_and_configuration.md](setup_and_configuration.md) · [data_pipeline.md](data_pipeline.md)
 
 ## Modes
 
@@ -22,7 +22,7 @@ Default JDBC host **`SQOOP_PG_HOST=host.docker.internal`** with **`host.docker.i
 
 Unset **`USE_DOCKER_HADOOP`**. **`hdfs`** and **`sqoop`** on **`PATH`**; cluster config via the usual env e.g. **`HADOOP_CONF_DIR`**.
 
-Set **`HDFS_WAREHOUSE_BASE`** to an absolute path, e.g. **`/user/teamN/project/warehouse`**.
+Set **`HDFS_WAREHOUSE_BASE`** to an absolute path, e.g. **`/user/team34/project/warehouse`**.
 
 Layout under that prefix:
 
@@ -52,7 +52,7 @@ Layout under that prefix:
 ### `hdfs_apply_replication.sh`
 
 - No-op if **`HDFS_REPLICATION`** is unset.
-- Else **`hdfs dfs -setrep -R -w <n> <HDFS_WAREHOUSE_BASE>`**. See [submission_and_cluster.md](submission_and_cluster.md).
+- Else **`hdfs dfs -setrep -R -w <n> <HDFS_WAREHOUSE_BASE>`**.
 
 ## Sqoop image
 
@@ -69,7 +69,7 @@ docker compose -p reviewhdfs -f infra/hadoop/docker-compose.yml exec -T namenode
 
 NameNode UI is typically **http://localhost:9870** if the port is published.
 
-On the cluster: **`hdfs dfs -ls -R /user/teamN/project/warehouse`**.
+On the cluster: **`hdfs dfs -ls -R /user/team34/project/warehouse`**.
 
 ## Sqoop warnings
 

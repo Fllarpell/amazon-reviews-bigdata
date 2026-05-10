@@ -14,7 +14,8 @@ lint:
 		db/apply_migrations.py \
 		db/verify_migrations.py \
 		db/revert_last_migration.py \
-		scripts/stage2_spark_eda.py
+		scripts/stage2_spark_eda.py \
+		scripts/stage3_data_prep.py
 
 docker-up:
 	docker compose up -d

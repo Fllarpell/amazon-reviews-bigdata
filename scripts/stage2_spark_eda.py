@@ -165,12 +165,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--hive-db-name",
-        default="teamx_projectdb",
+        default="team34_projectdb",
         help="Hive database name",
     )
     parser.add_argument(
         "--hive-db-location",
-        default="project/hive/warehouse/teamx_projectdb",
+        default="project/hive/warehouse/team34_projectdb",
         help="Hive database location (HDFS or local path configured in cluster)",
     )
     return parser.parse_args()
