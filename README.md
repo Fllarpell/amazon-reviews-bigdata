@@ -78,6 +78,9 @@ Run Stage 2:
 bash scripts/stage2.sh
 ```
 
+By default Stage 2 runs through `beeline` (`STAGE2_ENGINE=beeline`) and writes `output/hive_results.txt`, `output/q1.csv`, `output/q2.csv`, `output/q3.csv`.  
+Optional environment variables for cluster runs: `HIVE_JDBC_URL`, `HIVE_USER`, `HIVE_PASSWORD`, `HIVE_DB_NAME`, `HIVE_DB_LOCATION`, `HDFS_WAREHOUSE_BASE`.
+
 Run Stage 3 data preparation:
 
 ```bash

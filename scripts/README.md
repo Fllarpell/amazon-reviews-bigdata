@@ -14,6 +14,8 @@ For Stage 2:
 bash scripts/stage2.sh
 ```
 
+Default engine is `beeline` (`STAGE2_ENGINE=beeline`); use `STAGE2_ENGINE=spark` only when Spark+Hive classpath is configured.
+
 For ML data preparation before Stage 3:
 
 ```bash
