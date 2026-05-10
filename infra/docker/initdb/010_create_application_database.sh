@@ -16,5 +16,5 @@ if ! psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname=
   psql -v ON_ERROR_STOP=1 -U postgres -d postgres -c "CREATE DATABASE ${DBNAME} OWNER ${ROLE};"
 fi
 psql -v ON_ERROR_STOP=1 -U postgres -d "${DBNAME}" <<-EOSQL
-CREATE EXTENSION IF NOT EXISTS citus;
+SELECT 1;
 EOSQL

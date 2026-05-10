@@ -8,7 +8,7 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 |----------|----------|
 | [docs/setup_and_configuration.md](docs/setup_and_configuration.md) | Requirements, first run, `.env` / secrets, Makefile |
 | [docs/data_pipeline.md](docs/data_pipeline.md) | End-to-end data flow, each stage, idempotency |
-| [docs/database_and_migrations.md](docs/database_and_migrations.md) | Citus, initdb, migrations ledger, scripts |
+| [docs/database_and_migrations.md](docs/database_and_migrations.md) | PostgreSQL initdb, migrations ledger, scripts |
 | [docs/hadoop_sqoop_and_hdfs.md](docs/hadoop_sqoop_and_hdfs.md) | Local Docker Hadoop vs cluster, Sqoop, HDFS scripts |
 
 ## Layout
@@ -32,7 +32,7 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | `lib/` | Shared Python: logging, DB, migration runner |
 | `migrations/versions/<id>/` | `deploy/*.sql`, `revert.sql`, `verify.sql`; ledger `pipeline.schema_migrations` |
 | `reference/schema/` | Read-only DDL split (mirrors `deploy/`); not run by tools |
-| `infra/docker/initdb/` | Citus container bootstrap (role + database) |
+| `infra/docker/initdb/` | PostgreSQL container bootstrap (role + database) |
 | `docs/` | Manuals (see **Documentation** above), `project_description.txt`, `pipeline.txt` |
 | `team34.pdf` | Team / course specification (PDF) |
 | `data/raw`, `data/staging` | Local datasets (gitignored) |
@@ -122,7 +122,7 @@ On the cluster, use **native** `hdfs` / `sqoop` with **`USE_DOCKER_HADOOP` unset
 | `EXPECTED_MIN_METADATA_LINES` | Minimum raw metadata lines |
 | `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` | Connection |
 | `APP_DB_USER`, `APP_DB_NAME` | Container init only |
-| `CITUS_CONTAINER_NAME`, `COORDINATOR_PORT` | Docker |
+| `POSTGRES_CONTAINER_NAME`, `POSTGRES_PORT` | Docker |
 | `SKIP_SQOOP` | Skip Hadoop export |
 | `SKIP_HDFS_STAGING` | Skip copying `data/staging/*.csv` into HDFS |
 | `USE_DOCKER_HADOOP` | `1` / `true` / `yes`: Sqoop + HDFS staging uploads via Docker (`make pipeline-all` sets this) |
