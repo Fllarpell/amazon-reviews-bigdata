@@ -24,7 +24,7 @@ CREATE EXTERNAL TABLE reviews_ext (
     rating INT,
     review_title STRING,
     review_text STRING,
-    review_timestamp TIMESTAMP,
+    review_timestamp BIGINT,
     helpful_vote INT,
     verified_purchase BOOLEAN,
     images_json STRING
@@ -77,13 +77,32 @@ SELECT
     rating,
     review_title,
     review_text,
-    review_timestamp,
+    review_timestamp_ts AS review_timestamp,
     helpful_vote,
     verified_purchase,
     images_json,
-    YEAR(review_timestamp) AS review_year,
-    MONTH(review_timestamp) AS review_month
-FROM reviews_ext;
+    YEAR(review_timestamp_ts) AS review_year,
+    MONTH(review_timestamp_ts) AS review_month
+FROM (
+    SELECT
+        review_id,
+        parent_asin,
+        user_id,
+        asin,
+        rating,
+        review_title,
+        review_text,
+        CASE
+            WHEN review_timestamp IS NULL THEN NULL
+            WHEN review_timestamp > 32503680000
+                THEN CAST(from_unixtime(CAST(review_timestamp / 1000 AS BIGINT)) AS TIMESTAMP)
+            ELSE CAST(from_unixtime(review_timestamp) AS TIMESTAMP)
+        END AS review_timestamp_ts,
+        helpful_vote,
+        verified_purchase,
+        images_json
+    FROM reviews_ext
+) reviews_prepared;
 
 DROP TABLE IF EXISTS metadata_bucketed;
 CREATE TABLE metadata_bucketed (
