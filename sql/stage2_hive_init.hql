@@ -9,6 +9,8 @@
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
 SET hive.enforce.bucketing=true;
+SET hive.exec.max.dynamic.partitions=5000;
+SET hive.exec.max.dynamic.partitions.pernode=2000;
 
 CREATE DATABASE IF NOT EXISTS ${hiveconf:hive_db_name}
 LOCATION '${hiveconf:hive_db_location}';
