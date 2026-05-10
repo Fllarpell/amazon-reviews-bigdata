@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export PYTHONPATH="${ROOT}"
 cd "${ROOT}"
-if [[ -f "${ROOT}/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${ROOT}/.env"
-  set +a
-fi
+
 PYTHON_CMD=()
 if [[ -n "${PYTHON:-}" ]]; then
   PYTHON_CMD=("${PYTHON}")
@@ -24,8 +19,6 @@ else
   echo "No Python interpreter found (tried .venv/bin/python, python3, py)." >&2
   exit 1
 fi
+
 "${PYTHON_CMD[@]}" "${ROOT}/etl/fetch_review_dataset.py"
 "${PYTHON_CMD[@]}" "${ROOT}/etl/validate_staged_csv.py"
-"${PYTHON_CMD[@]}" "${ROOT}/db/load_into_postgres.py"
-bash "${ROOT}/export/sqoop_parquet_export.sh"
-bash "${ROOT}/export/hdfs_upload_staging.sh"

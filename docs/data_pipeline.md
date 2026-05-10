@@ -11,12 +11,13 @@ Hugging Face JSONL → data/raw/*.jsonl
   → etl/fetch_review_dataset.py → data/staging/*.csv
   → etl/validate_staged_csv.py
   → db/load_into_postgres.py → public.metadata, public.reviews
-  → export/sqoop_parquet_export.sh → HDFS Parquet
+  → export/sqoop_parquet_export.sh → HDFS Parquet + Snappy
   → export/hdfs_upload_staging.sh → HDFS CSV under …/staging/
   → optional hdfs_apply_replication.sh if HDFS_REPLICATION is set
 ```
 
-Entrypoint: **`bin/run_pipeline.sh`** or root **`run_pipeline.sh`**.
+Stage-1 entrypoint: **`scripts/stage1.sh`**.
+Legacy wrappers: **`bin/run_pipeline.sh`** and root **`run_pipeline.sh`**.
 
 ## Fetch and stage
 
@@ -36,7 +37,8 @@ Reviews: keep rows whose `parent_asin` exists in metadata; dedupe on **`parent_a
 
 ## HDFS export
 
-Sqoop JDBC → `HDFS_WAREHOUSE_BASE/reviews` and `/metadata` as Parquet with Snappy. Staging CSV → `/staging/`. Details: [hadoop_sqoop_and_hdfs.md](hadoop_sqoop_and_hdfs.md).
+Sqoop JDBC → `HDFS_WAREHOUSE_BASE/reviews` and `/metadata` as Parquet with Snappy.
+Staging CSV is copied to `/staging/`. Details: [hadoop_sqoop_and_hdfs.md](hadoop_sqoop_and_hdfs.md).
 
 Local Docker uses a relative warehouse path under the HDFS user home; on a shared cluster set an absolute path such as `/user/teamN/project/warehouse`.
 

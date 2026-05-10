@@ -13,7 +13,7 @@ Load (relational warehouse)
   db/apply_migrations.py or db/load_into_postgres.py: versioned DDL (Citus), TRUNCATE + COPY into metadata and reviews.
 
 Export (data lake)
-  export/sqoop_parquet_export.sh: JDBC read from Postgres -> HDFS Parquet (Snappy) for Spark/Hive downstream.
+  export/sqoop_parquet_export.sh: JDBC read from Postgres -> HDFS Parquet (Snappy) for Stage 1 ingestion requirements.
   export/hdfs_upload_staging.sh: copies data/staging/*.csv into HDFS under <HDFS_WAREHOUSE_BASE>/staging/ (native hdfs or Docker client).
   export/hdfs_apply_replication.sh: if HDFS_REPLICATION is set, runs hdfs dfs -setrep -R -w on HDFS_WAREHOUSE_BASE (shared clusters with tight disk).
 

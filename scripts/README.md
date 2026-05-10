@@ -1,0 +1,15 @@
+# scripts
+
+Stage entrypoints live here.
+
+The grader runs stage scripts from repository root, for example:
+
+```bash
+bash scripts/stage1.sh
+```
+
+For Stage 2:
+
+```bash
+bash scripts/stage2.sh
+```

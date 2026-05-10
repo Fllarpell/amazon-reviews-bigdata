@@ -13,7 +13,8 @@ lint:
 		db/load_into_postgres.py \
 		db/apply_migrations.py \
 		db/verify_migrations.py \
-		db/revert_last_migration.py
+		db/revert_last_migration.py \
+		scripts/stage2_spark_eda.py
 
 docker-up:
 	docker compose up -d

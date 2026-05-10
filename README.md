@@ -11,17 +11,26 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | [docs/database_and_migrations.md](docs/database_and_migrations.md) | Citus, initdb, migrations ledger, scripts |
 | [docs/hadoop_sqoop_and_hdfs.md](docs/hadoop_sqoop_and_hdfs.md) | Local Docker Hadoop vs cluster, Sqoop, HDFS scripts |
 | [docs/submission_and_cluster.md](docs/submission_and_cluster.md) | Moodle submission, Innopolis cluster, replication / trash |
+| [docs/stage1_gap_matrix.md](docs/stage1_gap_matrix.md) | Stage 1 checklist compliance matrix |
+| [docs/stage1_summary.md](docs/stage1_summary.md) | Stage 1 implementation summary |
+| [docs/stage2_summary.md](docs/stage2_summary.md) | Stage 2 implementation summary and Superset manual steps |
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `bin/run_pipeline.sh` | Ordered orchestration (ETL end-to-end) |
+| `scripts/stage1.sh` | Stage 1 entrypoint used by grader (`bash scripts/stage1.sh`) |
+| `scripts/stage2.sh` | Stage 2 entrypoint used by grader (`bash scripts/stage2.sh`) |
+| `scripts/data_collection.sh` | Stage 1 data collection/validation step |
+| `scripts/data_storage.sh` | Stage 1 PostgreSQL schema/load step |
+| `scripts/data_ingestion.sh` | Stage 1 Sqoop/HDFS ingestion step |
+| `scripts/stage2_spark_eda.py` | Stage 2 Spark SQL EDA runner (`q1..q3`) |
+| `bin/run_pipeline.sh` | Ordered orchestration (legacy-compatible end-to-end wrapper) |
 | `run_pipeline.sh` | Thin wrapper that calls `bin/run_pipeline.sh` |
 | `config/constants.py` | Paths, URLs, thresholds, Postgres/HDFS env |
 | `etl/` | **Extract + stage**: fetch JSONL, emit CSV; validate staging |
 | `db/` | **Load + schema**: migrations, bulk load, verify, revert |
-| `export/` | **Export**: Sqoop → HDFS Parquet; staging CSV → HDFS; optional `HDFS_REPLICATION` |
+| `export/` | **Export**: Sqoop Parquet+Snappy (Stage 1), staging CSV → HDFS |
 | `lib/` | Shared Python: logging, DB, migration runner |
 | `migrations/versions/<id>/` | `deploy/*.sql`, `revert.sql`, `verify.sql`; ledger `pipeline.schema_migrations` |
 | `reference/schema/` | Read-only DDL split (mirrors `deploy/`); not run by tools |
@@ -30,6 +39,8 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | `team34.pdf` | Team / course specification (PDF) |
 | `data/raw`, `data/staging` | Local datasets (gitignored) |
 | `secrets/` | ` .psql.pass` (gitignored) |
+| `sql/` | Stage-oriented SQL files (`create_tables.sql`, `import_data.sql`, `test_database.sql`) |
+| `output/` | Submission artifacts and generated reports |
 
 ## Configuration
 
@@ -55,7 +66,19 @@ make pipeline
 # CONFIRM=yes make revert-last-migration
 ```
 
-Or: `bash run_pipeline.sh` / `bash bin/run_pipeline.sh`
+Or run Stage 1 directly:
+
+```bash
+bash scripts/stage1.sh
+```
+
+Or legacy wrapper: `bash run_pipeline.sh` / `bash bin/run_pipeline.sh`
+
+Run Stage 2:
+
+```bash
+bash scripts/stage2.sh
+```
 
 ### Full dataset
 
