@@ -11,6 +11,9 @@ SET hive.exec.dynamic.partition.mode=nonstrict;
 SET hive.enforce.bucketing=true;
 SET hive.exec.max.dynamic.partitions=5000;
 SET hive.exec.max.dynamic.partitions.pernode=2000;
+SET hive.vectorized.execution.enabled=false;
+SET hive.vectorized.execution.reduce.enabled=false;
+SET hive.vectorized.input.format.excludes=org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 
 CREATE DATABASE IF NOT EXISTS ${hiveconf:hive_db_name}
 LOCATION '${hiveconf:hive_db_location}';
