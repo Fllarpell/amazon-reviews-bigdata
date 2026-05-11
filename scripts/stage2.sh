@@ -79,6 +79,10 @@ for query_id in q1 q2 q3 q4 q5; do
   run_eda_query "${query_id}"
 done
 
+echo "Post-EDA table check" >> output/hive_results.txt
+"${beeline_base[@]}" --silent=true --showHeader=true \
+  -e "USE ${HIVE_DB_NAME}; SHOW TABLES LIKE 'q*_results';" >> output/hive_results.txt
+
 for csv_file in output/q1.csv output/q2.csv output/q3.csv output/q4.csv output/q5.csv; do
   if [[ ! -s "${csv_file}" ]]; then
     echo "Missing or empty ${csv_file}" >&2
