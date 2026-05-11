@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build train/test JSON from Hive features")
     parser.add_argument("--team", default="team34")
     parser.add_argument("--database", required=True)
-    parser.add_argument("--feature-table", default="stage3_ml_features")
+    parser.add_argument("--feature-table", default="ml_features")
     parser.add_argument("--label-col", default="label")
     parser.add_argument("--hdfs-train-dir", default="project/data/train")
     parser.add_argument("--hdfs-test-dir", default="project/data/test")
