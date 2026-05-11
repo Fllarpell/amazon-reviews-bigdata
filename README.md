@@ -70,6 +70,18 @@ Or run Stage 1 directly:
 bash scripts/stage1.sh
 ```
 
+Windows PowerShell (without `make`) local Docker helper:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_local_docker_stage1.ps1
+```
+
+Optional quick smoke run with smaller staged sample:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_local_docker_stage1.ps1 -JsonlLineLimit 10000
+```
+
 Or legacy wrapper: `bash run_pipeline.sh` / `bash bin/run_pipeline.sh`
 
 Run Stage 2:

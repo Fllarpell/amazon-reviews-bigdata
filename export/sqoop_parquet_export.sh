@@ -53,9 +53,9 @@ if [[ "$use_docker" == true ]]; then
       --add-host=host.docker.internal:host-gateway \
       --env-file "${HADOOP_DIR}/hadoop.env" \
       -e "HADOOP_USER_NAME=hadoop" \
-      -e "HADOOP_MAPRED_HOME=/opt/hadoop" \
-      -e "HADOOP_HOME=/opt/hadoop" \
-      -e "SQOOP_HOME=/opt/sqoop" \
+      -e "HADOOP_MAPRED_HOME=//opt/hadoop" \
+      -e "HADOOP_HOME=//opt/hadoop" \
+      -e "SQOOP_HOME=//opt/sqoop" \
       "${SQOOP_IMAGE}" \
       sqoop "$@"
   }

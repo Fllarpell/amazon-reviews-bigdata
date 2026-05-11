@@ -9,6 +9,10 @@ WAREHOUSE="${HDFS_WAREHOUSE_BASE:-project/warehouse}"
 STAGING_LOCAL="${ROOT}/data/staging"
 REVIEWS_CSV="${STAGING_LOCAL}/reviews.csv"
 META_CSV="${STAGING_LOCAL}/metadata.csv"
+STAGING_MOUNT_PATH="${STAGING_LOCAL}"
+if command -v cygpath >/dev/null 2>&1; then
+  STAGING_MOUNT_PATH="$(cygpath -w "${STAGING_LOCAL}")"
+fi
 
 if [[ "${SKIP_HDFS_STAGING:-}" =~ ^(1|true|yes)$ ]]; then
   echo "SKIP_HDFS_STAGING set, skipping CSV upload to HDFS"
@@ -39,8 +43,8 @@ upload_docker() {
     --network "${HADOOP_NET}" \
     --env-file "${HADOOP_DIR}/hadoop.env" \
     -e "HADOOP_USER_NAME=hadoop" \
-    -e "HADOOP_HOME=/opt/hadoop" \
-    -v "${STAGING_LOCAL}:/staging:ro" \
+    -e "HADOOP_HOME=//opt/hadoop" \
+    -v "${STAGING_MOUNT_PATH}:/staging:ro" \
     apache/hadoop:3 \
     bash -lc "hdfs dfs -mkdir -p '${dest_base}' && hdfs dfs -put -f /staging/reviews.csv '${dest_base}/' && hdfs dfs -put -f /staging/metadata.csv '${dest_base}/'"
 }

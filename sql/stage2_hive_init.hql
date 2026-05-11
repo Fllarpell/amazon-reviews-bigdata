@@ -55,7 +55,7 @@ STORED AS PARQUET
 LOCATION '${hiveconf:hdfs_warehouse_base}/metadata';
 
 DROP TABLE IF EXISTS reviews_optimized;
-CREATE TABLE reviews_optimized (
+CREATE EXTERNAL TABLE reviews_optimized (
     review_id STRING,
     parent_asin STRING,
     user_id STRING,
@@ -110,7 +110,7 @@ FROM (
 ) reviews_prepared;
 
 DROP TABLE IF EXISTS metadata_bucketed;
-CREATE TABLE metadata_bucketed (
+CREATE EXTERNAL TABLE metadata_bucketed (
     parent_asin STRING,
     main_category STRING,
     title STRING,

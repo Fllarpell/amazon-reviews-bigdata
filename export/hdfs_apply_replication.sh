@@ -34,7 +34,7 @@ if [[ "$use_docker" == true ]]; then
     --network "${HADOOP_NET}" \
     --env-file "${HADOOP_DIR}/hadoop.env" \
     -e "HADOOP_USER_NAME=hadoop" \
-    -e "HADOOP_HOME=/opt/hadoop" \
+    -e "HADOOP_HOME=//opt/hadoop" \
     apache/hadoop:3 \
     bash -lc "hdfs dfs -setrep -R -w '${rep}' '${WAREHOUSE}'"
 else
