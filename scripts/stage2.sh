@@ -31,13 +31,12 @@ declare -a hiveconf_args=(
   --hiveconf "hdfs_warehouse_base=${HDFS_WAREHOUSE_BASE}"
   --hiveconf "hive_reviews_optimized_path=${HIVE_REVIEWS_OPTIMIZED_PATH}"
   --hiveconf "hive_metadata_bucketed_path=${HIVE_METADATA_BUCKETED_PATH}"
-  --hiveconf "project_root=${ROOT}"
 )
 
 mkdir -p output
 echo "Stage 2: Hive DDL + EDA via Beeline"
-echo "Running db.hql..."
-"${beeline_base[@]}" "${hiveconf_args[@]}" -f "${ROOT}/sql/db.hql" | tee output/hive_results.txt
+echo "Running stage2_hive_init.hql..."
+"${beeline_base[@]}" "${hiveconf_args[@]}" -f "${ROOT}/sql/stage2_hive_init.hql" | tee output/hive_results.txt
 
 run_eda_query() {
   local query_id="$1"
