@@ -19,7 +19,8 @@ echo "exit_code=${rc}" | tee -a "${LOG_DIR}/stage1_run.txt"
 if [[ ${rc} -ne 0 ]]; then overall_exit=${rc}; fi
 
 echo "=== stage1_postgres_counts ===" | tee "${LOG_DIR}/stage1_postgres_counts.txt"
-PGPASSWORD="$(cat "${ROOT}/secrets/.psql.pass")" psql -h "${PGHOST:-}" -p "${PGPORT:-}" -U "${PGUSER:-}" -d "${PGDATABASE:-}" -c "SELECT COUNT(*) AS metadata_rows FROM metadata; SELECT COUNT(*) AS reviews_rows FROM reviews;" 2>&1 | tee -a "${LOG_DIR}/stage1_postgres_counts.txt"
+resolve_python_cmd "${ROOT}"
+"${PYTHON_CMD[@]}" "${ROOT}/db/validate_stage1_counts.py" 2>&1 | tee -a "${LOG_DIR}/stage1_postgres_counts.txt"
 rc=${PIPESTATUS[0]}
 echo "exit_code=${rc}" | tee -a "${LOG_DIR}/stage1_postgres_counts.txt"
 if [[ ${rc} -ne 0 ]]; then overall_exit=${rc}; fi
