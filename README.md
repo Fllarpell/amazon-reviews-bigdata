@@ -10,6 +10,8 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | [docs/data_pipeline.md](docs/data_pipeline.md) | End-to-end data flow, each stage, idempotency |
 | [docs/database_and_migrations.md](docs/database_and_migrations.md) | PostgreSQL initdb, migrations ledger, scripts |
 | [docs/hadoop_sqoop_and_hdfs.md](docs/hadoop_sqoop_and_hdfs.md) | Local Docker Hadoop vs cluster, Sqoop, HDFS scripts |
+| [docs/submission_and_cluster.md](docs/submission_and_cluster.md) | Moodle submission, Innopolis cluster, replication / trash |
+| [docs/stage3_ml.md](docs/stage3_ml.md) | Stage III Spark ML on YARN (features, split, tuning, outputs) |
 
 ## Layout
 
@@ -28,7 +30,8 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | `config/constants.py` | Paths, URLs, thresholds, Postgres/HDFS env |
 | `etl/` | **Extract + stage**: fetch JSONL, emit CSV; validate staging |
 | `db/` | **Load + schema**: migrations, bulk load, verify, revert |
-| `export/` | **Export**: Sqoop Parquet+Snappy (Stage 1), staging CSV → HDFS |
+| `export/` | **Export**: Sqoop Parquet+Snappy (Stage 1) → HDFS; staging CSV → HDFS; optional `HDFS_REPLICATION` |
+| `scripts/` | Stage entrypoints + Stage III Spark ML (`spark-submit --master yarn` via `scripts/stage3_dummy.sh` / `scripts/stage3.sh`) |
 | `lib/` | Shared Python: logging, DB, migration runner |
 | `migrations/versions/<id>/` | `deploy/*.sql`, `revert.sql`, `verify.sql`; ledger `pipeline.schema_migrations` |
 | `reference/schema/` | Read-only DDL split (mirrors `deploy/`); not run by tools |
@@ -37,7 +40,7 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | `team34.pdf` | Team / course specification (PDF) |
 | `data/raw`, `data/staging` | Local datasets (gitignored) |
 | `secrets/` | ` .psql.pass` (gitignored) |
-| `sql/` | Stage-oriented SQL files (`create_tables.sql`, `import_data.sql`, `test_database.sql`) |
+| `sql/` | Stage-oriented SQL / HiveQL (`create_tables.sql`, `import_data.sql`, `test_database.sql`, `stage3_ml_features.hql`) |
 | `output/` | Submission artifacts and generated reports |
 
 ## Configuration
@@ -110,6 +113,16 @@ Run Stage 3 data preparation:
 ```bash
 bash scripts/stage3_prep.sh
 ```
+
+Distributed Stage III (Hive feature table + `spark-submit --master yarn` split + ML tuning/evaluation):
+
+```bash
+# Requires HIVE_PASSWORD (and beeline) on the cluster; see docs/stage3_ml.md
+bash scripts/stage3_dummy.sh
+# or: make stage3-ml
+```
+
+Local smoke test only (not the YARN ML assignment path): `STAGE3_DUMMY_ONLY=1 bash scripts/stage3_dummy.sh`.
 
 ### Full dataset
 

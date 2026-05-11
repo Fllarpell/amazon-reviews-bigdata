@@ -1,3 +1,8 @@
+-- Stage III ML feature table (partitioned Parquet).
+-- Run from scripts (see scripts/stage3.sh or scripts/stage3_dummy.sh) with:
+--   beeline ... --hiveconf hive_db_name=... --hiveconf hive_db_location=...
+--   --hiveconf hive_ml_features_table=... --hiveconf hive_ml_features_path=...
+
 CREATE DATABASE IF NOT EXISTS ${hiveconf:hive_db_name}
 LOCATION '${hiveconf:hive_db_location}';
 
