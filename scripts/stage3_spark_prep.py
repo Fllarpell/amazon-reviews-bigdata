@@ -5,12 +5,14 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.utils import AnalysisException
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Stage 3 Spark data preparation")
     parser.add_argument("--hive-db-name", required=True)
     parser.add_argument("--hive-features-table", required=True)
+    parser.add_argument("--hdfs-features-path", required=True)
     parser.add_argument("--train-ratio", type=float, default=0.8)
     parser.add_argument("--split-seed", type=int, default=34)
     parser.add_argument("--hdfs-train-path", required=True)
@@ -63,7 +65,12 @@ def main():
     )
 
     source_name = "{0}.{1}".format(args.hive_db_name, args.hive_features_table)
-    source_df = spark.table(source_name)
+    source_origin = "hive_table"
+    try:
+        source_df = spark.table(source_name)
+    except AnalysisException:
+        source_df = spark.read.parquet(args.hdfs_features_path)
+        source_origin = "hdfs_parquet"
 
     required_cols = [
         "review_id",
@@ -132,6 +139,8 @@ def main():
 
     summary_values = {
         "source_table": source_name,
+        "source_origin": source_origin,
+        "hdfs_features_path": args.hdfs_features_path,
         "source_rows": source_rows,
         "cleaned_rows": cleaned_rows,
         "dropped_rows": dropped_rows,

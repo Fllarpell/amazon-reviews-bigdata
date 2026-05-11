@@ -69,6 +69,7 @@ SPARK_SCRIPT_PATH="$(python_script_path_for_platform "${SPARK_SCRIPT_PATH}")"
 "${SPARK_SUBMIT_BIN}" --master yarn "${SPARK_SCRIPT_PATH}" \
   --hive-db-name "${HIVE_DB_NAME}" \
   --hive-features-table "${HIVE_ML_FEATURES_TABLE}" \
+  --hdfs-features-path "${HIVE_ML_FEATURES_PATH}" \
   --train-ratio "${STAGE3_TRAIN_RATIO}" \
   --split-seed "${STAGE3_SPLIT_SEED}" \
   --hdfs-train-path "${STAGE3_HDFS_TRAIN_PATH}" \
