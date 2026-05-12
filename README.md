@@ -11,7 +11,6 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | [docs/database_and_migrations.md](docs/database_and_migrations.md) | Citus, initdb, migrations ledger, scripts |
 | [docs/hadoop_sqoop_and_hdfs.md](docs/hadoop_sqoop_and_hdfs.md) | Local Docker Hadoop vs cluster, Sqoop, HDFS scripts |
 | [docs/submission_and_cluster.md](docs/submission_and_cluster.md) | Moodle submission, Innopolis cluster, replication / trash |
-| [docs/stage3_ml.md](docs/stage3_ml.md) | Stage III Spark ML on YARN (features, split, tuning, outputs) |
 
 ## Layout
 
@@ -23,8 +22,6 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | `etl/` | **Extract + stage**: fetch JSONL, emit CSV; validate staging |
 | `db/` | **Load + schema**: migrations, bulk load, verify, revert |
 | `export/` | **Export**: Sqoop → HDFS Parquet; staging CSV → HDFS; optional `HDFS_REPLICATION` |
-| `scripts/` | **Stage III Spark ML**: Hive split prep + distributed model training (`spark-submit --master yarn`) |
-| `sql/` | HiveQL scripts including Stage III feature layer (`stage3_ml_features.hql`) |
 | `lib/` | Shared Python: logging, DB, migration runner |
 | `migrations/versions/<id>/` | `deploy/*.sql`, `revert.sql`, `verify.sql`; ledger `pipeline.schema_migrations` |
 | `reference/schema/` | Read-only DDL split (mirrors `deploy/`); not run by tools |
