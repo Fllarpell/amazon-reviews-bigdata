@@ -1,6 +1,5 @@
 DO $$
 DECLARE
-    dist_count integer;
     fk_count integer;
 BEGIN
     IF NOT EXISTS (
@@ -14,15 +13,6 @@ BEGIN
         WHERE table_schema = 'public' AND table_name = 'reviews'
     ) THEN
         RAISE EXCEPTION 'verify 001: table public.reviews is missing';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'citus') THEN
-        RAISE EXCEPTION 'verify 001: citus extension is missing';
-    END IF;
-    SELECT COUNT(*) INTO dist_count
-    FROM pg_dist_partition
-    WHERE logicalrelid IN ('public.metadata'::regclass, 'public.reviews'::regclass);
-    IF dist_count <> 2 THEN
-        RAISE EXCEPTION 'verify 001: expected 2 citus distributed tables, got %', dist_count;
     END IF;
     SELECT COUNT(*) INTO fk_count
     FROM information_schema.table_constraints

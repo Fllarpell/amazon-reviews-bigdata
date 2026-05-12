@@ -1,3 +1,5 @@
+"""Revert the latest migration using its ``revert.sql``."""
+
 import argparse
 import logging
 import sys

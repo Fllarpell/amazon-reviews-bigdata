@@ -4,7 +4,7 @@ See also: [setup_and_configuration.md](setup_and_configuration.md) · [data_pipe
 
 ## Postgres role
 
-Staging lands in **`public.metadata`** and **`public.reviews`**. Citus extension is enabled in the Docker image via init scripts.
+Staging lands in **`public.metadata`** and **`public.reviews`**.
 
 ## Container init
 
@@ -12,7 +12,7 @@ Staging lands in **`public.metadata`** and **`public.reviews`**. Citus extension
 
 1. Creates role `APP_DB_USER` with `POSTGRES_PASSWORD` if missing.
 2. Creates database `APP_DB_NAME` owned by that role.
-3. Runs `CREATE EXTENSION IF NOT EXISTS citus` in that database.
+3. Finalizes initialization in that database.
 
 Align `PGUSER`, `PGDATABASE`, and `secrets/.psql.pass` with this setup.
 

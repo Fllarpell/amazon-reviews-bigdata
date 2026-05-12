@@ -1,7 +1,7 @@
 ROOT := $(CURDIR)
 PYTHON ?= $(shell test -x $(ROOT)/.venv/bin/python && echo $(ROOT)/.venv/bin/python || command -v python3)
 
-.PHONY: install lint docker-up docker-down hadoop-up hadoop-down hadoop-build-sqoop hadoop-wait pipeline pipeline-full pipeline-all migrate verify-migrations revert-last-migration secrets
+.PHONY: install lint docker-up docker-down hadoop-up hadoop-down hadoop-build-sqoop hadoop-wait pipeline pipeline-full pipeline-all stage3-ml migrate verify-migrations revert-last-migration secrets
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -13,7 +13,9 @@ lint:
 		db/load_into_postgres.py \
 		db/apply_migrations.py \
 		db/verify_migrations.py \
-		db/revert_last_migration.py
+		db/revert_last_migration.py \
+		scripts/stage2_spark_eda.py \
+		scripts/legacy/stage3_data_prep.py
 
 docker-up:
 	docker compose up -d
@@ -55,3 +57,6 @@ pipeline-full: secrets
 
 pipeline-all: secrets docker-up hadoop-up hadoop-build-sqoop
 	bash -lc 'set -a && [ -f "$(ROOT)/.env" ] && . "$(ROOT)/.env"; set +a; unset JSONL_LINE_LIMIT SKIP_SQOOP; export USE_DOCKER_HADOOP=1; cd "$(ROOT)" && bash bin/run_pipeline.sh'
+
+stage3-ml:
+	bash $(ROOT)/scripts/stage3.sh

@@ -1,3 +1,5 @@
+"""Single-process logging bootstrap for CLI scripts."""
+
 import logging
 import sys
 

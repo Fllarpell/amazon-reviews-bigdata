@@ -1,9 +1,9 @@
 services:
-  citus:
-    image: citusdata/citus:12.1.6
-    container_name: "${CITUS_CONTAINER_NAME:-review_pipeline_citus}"
+  postgres:
+    image: postgres:14
+    container_name: "${POSTGRES_CONTAINER_NAME:-review_pipeline_postgres}"
     ports:
-      - "${COORDINATOR_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
@@ -11,7 +11,7 @@ services:
       APP_DB_USER: "${APP_DB_USER:-pipeline_app}"
       APP_DB_NAME: "${APP_DB_NAME:-review_analytics}"
     volumes:
-      - citus_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       - ./infra/docker/initdb:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -20,4 +20,4 @@ services:
       retries: 10
 
 volumes:
-  citus_data:
+  postgres_data:

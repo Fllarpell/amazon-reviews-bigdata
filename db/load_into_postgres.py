@@ -1,3 +1,5 @@
+"""Run migrations, truncate ``reviews`` / ``metadata``, and bulk-load staging CSV."""
+
 import logging
 import sys
 from pathlib import Path

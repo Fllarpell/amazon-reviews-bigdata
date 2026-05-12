@@ -21,7 +21,15 @@ elif ! command -v sqoop >/dev/null 2>&1; then
 fi
 
 PASS_FILE="${ROOT}/secrets/.psql.pass"
-PASS="$(head -n 1 "${PASS_FILE}")"
+if [[ ! -f "${PASS_FILE}" ]]; then
+  echo "Password file not found: ${PASS_FILE}" >&2
+  exit 1
+fi
+read -r PASS < "${PASS_FILE}" || true
+if [[ -z "${PASS}" ]]; then
+  echo "Password file is empty: ${PASS_FILE}" >&2
+  exit 1
+fi
 DB_USER="${PGUSER:-pipeline_app}"
 DB_HOST="${PGHOST:-localhost}"
 DB_PORT="${PGPORT:-5432}"
@@ -45,9 +53,9 @@ if [[ "$use_docker" == true ]]; then
       --add-host=host.docker.internal:host-gateway \
       --env-file "${HADOOP_DIR}/hadoop.env" \
       -e "HADOOP_USER_NAME=hadoop" \
-      -e "HADOOP_MAPRED_HOME=/opt/hadoop" \
-      -e "HADOOP_HOME=/opt/hadoop" \
-      -e "SQOOP_HOME=/opt/sqoop" \
+      -e "HADOOP_MAPRED_HOME=//opt/hadoop" \
+      -e "HADOOP_HOME=//opt/hadoop" \
+      -e "SQOOP_HOME=//opt/sqoop" \
       "${SQOOP_IMAGE}" \
       sqoop "$@"
   }

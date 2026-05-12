@@ -1,3 +1,5 @@
+"""Validate raw JSONL schema samples and staged CSV row counts."""
+
 import json
 import logging
 import sys

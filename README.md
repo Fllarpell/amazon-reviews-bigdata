@@ -1,5 +1,7 @@
 # Amazon Appliances review pipeline
 
+Review JSONL is staged to CSV, loaded into PostgreSQL, exported to HDFS (Sqoop Parquet), analyzed in Hive, and summarized with Spark ML on YARN as described in `docs/`.
+
 Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [docs/project_description.txt](docs/project_description.txt) · ETL outline: [docs/pipeline.txt](docs/pipeline.txt).
 
 ## Documentation (full)
@@ -8,28 +10,41 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 |----------|----------|
 | [docs/setup_and_configuration.md](docs/setup_and_configuration.md) | Requirements, first run, `.env` / secrets, Makefile |
 | [docs/data_pipeline.md](docs/data_pipeline.md) | End-to-end data flow, each stage, idempotency |
-| [docs/database_and_migrations.md](docs/database_and_migrations.md) | Citus, initdb, migrations ledger, scripts |
+| [docs/database_and_migrations.md](docs/database_and_migrations.md) | PostgreSQL initdb, migrations ledger, scripts |
 | [docs/hadoop_sqoop_and_hdfs.md](docs/hadoop_sqoop_and_hdfs.md) | Local Docker Hadoop vs cluster, Sqoop, HDFS scripts |
 | [docs/submission_and_cluster.md](docs/submission_and_cluster.md) | Moodle submission, Innopolis cluster, replication / trash |
+| [docs/stage3_ml.md](docs/stage3_ml.md) | Stage III Spark ML on YARN (features, split, tuning, outputs) |
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `bin/run_pipeline.sh` | Ordered orchestration (ETL end-to-end) |
+| `scripts/stage1.sh` | Stage I entrypoint (`bash scripts/stage1.sh`) |
+| `scripts/stage2.sh` | Stage II entrypoint (`bash scripts/stage2.sh`) |
+| `scripts/stage3.sh` | Stage III entrypoint (Hive features → Spark split → Spark ML) |
+| `scripts/stage3_prep.sh` | Compatibility wrapper for legacy local Stage 3 prep helper |
+| `scripts/data_collection.sh` | Stage I fetch JSONL and validate staging CSV |
+| `scripts/data_storage.sh` | Stage I PostgreSQL schema load |
+| `scripts/data_ingestion.sh` | Stage I Sqoop export and HDFS staging upload |
+| `scripts/stage2_spark_eda.py` | Stage 2 Spark SQL EDA runner (`q1..q3`) |
+| `scripts/legacy/stage3_data_prep.py` | Legacy local Stage 3 prep script for exploratory QA |
+| `bin/run_pipeline.sh` | Ordered orchestration (legacy-compatible end-to-end wrapper) |
 | `run_pipeline.sh` | Thin wrapper that calls `bin/run_pipeline.sh` |
 | `config/constants.py` | Paths, URLs, thresholds, Postgres/HDFS env |
 | `etl/` | **Extract + stage**: fetch JSONL, emit CSV; validate staging |
 | `db/` | **Load + schema**: migrations, bulk load, verify, revert |
-| `export/` | **Export**: Sqoop → HDFS Parquet; staging CSV → HDFS; optional `HDFS_REPLICATION` |
+| `export/` | **Export**: Sqoop Parquet+Snappy (Stage 1) → HDFS; staging CSV → HDFS; optional `HDFS_REPLICATION` |
+| `scripts/` | Stage entrypoints + Stage III Spark ML (`spark-submit --master yarn` via `scripts/stage3.sh`) |
 | `lib/` | Shared Python: logging, DB, migration runner |
 | `migrations/versions/<id>/` | `deploy/*.sql`, `revert.sql`, `verify.sql`; ledger `pipeline.schema_migrations` |
 | `reference/schema/` | Read-only DDL split (mirrors `deploy/`); not run by tools |
-| `infra/docker/initdb/` | Citus container bootstrap (role + database) |
+| `infra/docker/initdb/` | PostgreSQL container bootstrap (role + database) |
 | `docs/` | Manuals (see **Documentation** above), `project_description.txt`, `pipeline.txt` |
 | `team34.pdf` | Team / course specification (PDF) |
 | `data/raw`, `data/staging` | Local datasets (gitignored) |
-| `secrets/` | ` .psql.pass` (gitignored) |
+| `secrets/` | `.psql.pass` (gitignored) |
+| `sql/` | Stage-oriented SQL / HiveQL (`create_tables.sql`, `import_data.sql`, `test_database.sql`, `stage3_ml_features.hql`) |
+| `output/` | Submission artifacts and generated reports |
 
 ## Configuration
 
@@ -55,7 +70,63 @@ make pipeline
 # CONFIRM=yes make revert-last-migration
 ```
 
-Or: `bash run_pipeline.sh` / `bash bin/run_pipeline.sh`
+Or run Stage 1 directly:
+
+```bash
+bash scripts/stage1.sh
+```
+
+Without GNU Make, run the same Stage I sequence after configuring `.env` and starting Postgres (`docker compose up -d`):
+
+```bash
+bash run_pipeline.sh
+```
+
+For a smaller smoke run, set `JSONL_LINE_LIMIT` in `.env` before invoking `run_pipeline.sh` or `make pipeline`.
+
+Or legacy wrapper: `bash run_pipeline.sh` / `bash bin/run_pipeline.sh`
+
+Run Stage 2:
+
+```bash
+bash scripts/stage2.sh
+```
+
+Stage 2 runs through `beeline` and writes `output/hive_results.txt`, `output/q1.csv`, `output/q2.csv`, `output/q3.csv`, `output/q4.csv`, `output/q5.csv`.  
+Optional environment variables for cluster runs: `HIVE_JDBC_URL`, `HIVE_USER`, `HIVE_PASSWORD`, `HIVE_DB_NAME`, `HIVE_DB_LOCATION`, `HDFS_WAREHOUSE_BASE`.
+
+Clean generated artifacts before a fresh run:
+
+```bash
+bash scripts/clean_artifacts.sh
+```
+
+Also remove raw JSONL files:
+
+```bash
+bash scripts/clean_artifacts.sh --with-raw
+```
+
+Run official Stage III (Hive feature table + split + model1/model2 + evaluation):
+
+```bash
+bash scripts/stage3.sh
+```
+
+Stage III feature policy (official flow):
+- Numeric: `helpful_vote`, `price`, `average_rating`, `rating_number`, `review_year`, `review_month`
+- Boolean: `verified_purchase` as binary feature
+- Categorical: `main_category` + `store` with Top-K bucketing (`STAGE3_STORE_TOP_K`, default `200`) and `other` fallback
+- Excluded by design: text fields (`review_text`, `review_title`) and high-cardinality IDs (`review_id`, `user_id`, `asin`, `parent_asin`)
+
+Legacy local prep helper (not the official Stage III checklist flow):
+
+```bash
+bash scripts/stage3_prep.sh
+```
+
+`scripts/stage3_dummy.sh` is deprecated and delegates to `scripts/stage3.sh`.
+Legacy implementation files are stored in `scripts/legacy/`.
 
 ### Full dataset
 
@@ -81,7 +152,7 @@ make pipeline-all
 
 `pipeline-all` runs `docker-up` (Citus), `hadoop-up`, builds the Sqoop image, then `bin/run_pipeline.sh` with **`USE_DOCKER_HADOOP=1`** (Sqoop and HDFS CSV upload use containers; Postgres stays on the host port from `.env`). For Postgres inside Docker on the same machine, the default **`SQOOP_PG_HOST=host.docker.internal`** is set in the export script; on Linux this relies on Docker’s **`host-gateway`** mapping (`docker run --add-host=host.docker.internal:host-gateway`). If JDBC from the Sqoop container cannot reach Postgres, set **`SQOOP_PG_HOST`** to your host LAN IP.
 
-On the **university cluster**, use **native** `hdfs` / `sqoop` with **`USE_DOCKER_HADOOP` unset**, set **`HDFS_WAREHOUSE_BASE`** to your team path (e.g. `/user/team0/project/warehouse`), and see [docs/submission_and_cluster.md](docs/submission_and_cluster.md) for replication, trash, and Moodle submission.
+On the cluster, use **native** `hdfs` / `sqoop` with **`USE_DOCKER_HADOOP` unset** and set **`HDFS_WAREHOUSE_BASE`** to your team path (e.g. `/user/team34/project/warehouse`).
 
 ## Environment
 
@@ -95,13 +166,14 @@ On the **university cluster**, use **native** `hdfs` / `sqoop` with **`USE_DOCKE
 | `EXPECTED_MIN_METADATA_LINES` | Minimum raw metadata lines |
 | `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` | Connection |
 | `APP_DB_USER`, `APP_DB_NAME` | Container init only |
-| `CITUS_CONTAINER_NAME`, `COORDINATOR_PORT` | Docker |
+| `POSTGRES_CONTAINER_NAME`, `POSTGRES_PORT` | Docker |
 | `SKIP_SQOOP` | Skip Hadoop export |
 | `SKIP_HDFS_STAGING` | Skip copying `data/staging/*.csv` into HDFS |
 | `USE_DOCKER_HADOOP` | `1` / `true` / `yes`: Sqoop + HDFS staging uploads via Docker (`make pipeline-all` sets this) |
 | `SQOOP_PG_HOST` | Hostname for JDBC from Sqoop container (default `host.docker.internal`) |
 | `HDFS_WAREHOUSE_BASE`, `JDBC_URL` | Sqoop / HDFS paths and JDBC |
 | `HDFS_REPLICATION` | If set (e.g. `2`), run `hdfs dfs -setrep -R -w` on `HDFS_WAREHOUSE_BASE` after exports (save space on shared clusters) |
+| `STAGE3_STORE_TOP_K` | Number of most frequent `store` values kept as dedicated categories in Stage III split pipeline (default `200`) |
 
 ## Lint
 

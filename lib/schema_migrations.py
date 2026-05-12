@@ -1,3 +1,5 @@
+"""Versioned SQL migrations with a ledger table in schema ``pipeline``."""
+
 import logging
 from pathlib import Path
 from typing import List, Set
