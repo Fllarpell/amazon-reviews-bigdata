@@ -61,7 +61,6 @@ echo "exit_code=${rc}" | tee -a "${LOG_DIR}/stage3_evaluation_preview.txt"
 if [[ ${rc} -ne 0 ]]; then overall_exit=${rc}; fi
 
 echo "=== stage3_error_scan ===" | tee "${LOG_DIR}/stage3_error_scan.txt"
-# Avoid matching Tez progress tables (column header \"FAILED\") and other noise.
 grep -nE 'Traceback|SyntaxError:|IndentationError:|ModuleNotFoundError:|Exception in thread|Caused by:|java\.lang\.|py4j\.|org\.apache\.spark\.SparkException' \
   "${LOG_DIR}/stage3_run.txt" 2>&1 | tee -a "${LOG_DIR}/stage3_error_scan.txt"
 grep_rc=${PIPESTATUS[0]}

@@ -8,7 +8,6 @@ source "${ROOT}/scripts/common.sh"
 load_dotenv "${ROOT}"
 resolve_python_cmd "${ROOT}"
 
-# YARN often defaults to `python` 2.x; force workers/AM to use the same interpreter as this script.
 PY_FOR_SPARK="${PYSPARK_PYTHON:-${PYTHON_CMD[0]}}"
 export PYSPARK_PYTHON="${PY_FOR_SPARK}"
 SPARK_SUBMIT_PY_ARGS=(
@@ -47,7 +46,6 @@ else
   exit 1
 fi
 
-# spark-submit runs find_spark_home.py, which needs SPARK_HOME or an importable pyspark on PYSPARK_PYTHON.
 stage3_export_spark_pythonpath() {
   local py4j
   export PYTHONPATH="${SPARK_HOME}/python${PYTHONPATH:+:${PYTHONPATH}}"
@@ -59,7 +57,6 @@ stage3_export_spark_pythonpath() {
   shopt -u nullglob
 }
 
-# When spark-submit lives under /usr/local/bin (wrapper), parent-of-bin is not Spark; try distro layouts.
 stage3_try_known_spark_roots() {
   local cand resolved
   local -a roots
@@ -128,7 +125,6 @@ stage3_resolve_spark_home() {
 
 stage3_resolve_spark_home || exit 1
 
-# pyspark.ml imports numpy on the Spark driver; cluster Pythons often omit it from the base image.
 if ! "${PY_FOR_SPARK}" -c "import numpy" >/dev/null 2>&1; then
   echo "[Stage3] NumPy is required for PySpark ML on the driver (same interpreter as PYSPARK_PYTHON)." >&2
   echo "[Stage3] Install with: ${PY_FOR_SPARK} -m pip install --user numpy" >&2
