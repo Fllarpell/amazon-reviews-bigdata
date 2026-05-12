@@ -166,7 +166,18 @@ def main() -> None:
         outputCol="features",
         handleInvalid="keep",
     ).transform(encoded)
-    dataset = assembled.select("features", F.col(label_col).alias("label"))
+    # Narrow binary + one-hot only: multinomial Naive Bayes assumes discrete/count-like
+    # dimensions; continuous numerics are intentionally omitted for model2 (see stage3_ml_train).
+    assembled_nb = VectorAssembler(
+        inputCols=["verified_purchase_num", "main_category_ohe", "store_bucketed_ohe"],
+        outputCol="features_nb",
+        handleInvalid="keep",
+    ).transform(assembled)
+    dataset = assembled_nb.select(
+        "features",
+        "features_nb",
+        F.col(label_col).alias("label"),
+    )
 
     sf = float(args.sample_fraction)
     if not (0 < sf <= 1.0):

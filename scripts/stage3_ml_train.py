@@ -63,37 +63,44 @@ def build_spark_session(args: argparse.Namespace) -> SparkSession:
     )
 
 
+def _vectorize_column(df: DataFrame, col_name: str) -> DataFrame:
+    col_type = df.schema[col_name].dataType
+    if isinstance(col_type, ArrayType):
+        return df.withColumn(
+            col_name,
+            array_to_vector(F.expr(f"transform({col_name}, x -> cast(x as double))")),
+        )
+    if hasattr(col_type, "names") and "values" in col_type.names:
+        return df.withColumn(
+            col_name,
+            array_to_vector(F.expr(f"transform({col_name}.values, x -> cast(x as double))")),
+        )
+    return df
+
+
 def normalize_frame(df: DataFrame) -> DataFrame:
-    """Ensure the DataFrame has `features` as Vector and `label` as double."""
+    """Ensure `features` (and optional `features_nb`) are Vectors; `label` is double."""
     if "label" not in df.columns or "features" not in df.columns:
         raise ValueError("Input JSON must contain 'features' and 'label' columns")
 
-    features_type = df.schema["features"].dataType
-    if isinstance(features_type, ArrayType):
-        normalized = df.withColumn(
-            "features",
-            array_to_vector(F.expr("transform(features, x -> cast(x as double))")),
-        )
-    elif hasattr(features_type, "names") and "values" in features_type.names:
-        normalized = df.withColumn(
-            "features",
-            array_to_vector(F.expr("transform(features.values, x -> cast(x as double))")),
-        )
-    else:
-        normalized = df
-
-    return normalized.withColumn("label", F.col("label").cast("double")).select("features", "label")
+    out = _vectorize_column(df, "features")
+    select_cols = ["features"]
+    if "features_nb" in df.columns:
+        out = _vectorize_column(out, "features_nb")
+        select_cols.append("features_nb")
+    select_cols.append("label")
+    return out.withColumn("label", F.col("label").cast("double")).select(*select_cols)
 
 
-def max_feature_dimension(df: DataFrame) -> int:
-    row = df.select(F.max(F.size(vector_to_array(F.col("features")))).alias("mx")).collect()[0]
+def max_feature_dimension(df: DataFrame, col: str = "features") -> int:
+    row = df.select(F.max(F.size(vector_to_array(F.col(col)))).alias("mx")).collect()[0]
     mx = row["mx"]
     if mx is None:
-        raise ValueError("Cannot infer feature dimension (empty frame or all-null features)")
+        raise ValueError(f"Cannot infer feature dimension for '{col}' (empty frame or all-null)")
     return int(mx)
 
 
-def pad_feature_vectors(df: DataFrame, dim: int) -> DataFrame:
+def pad_feature_vectors(df: DataFrame, dim: int, col: str = "features") -> DataFrame:
     def pad(vec):
         if vec is None:
             return Vectors.dense([0.0] * dim)
@@ -114,10 +121,10 @@ def pad_feature_vectors(df: DataFrame, dim: int) -> DataFrame:
         return Vectors.dense(out)
 
     udf_pad = F.udf(pad, VectorUDT())
-    return df.withColumn("features", udf_pad(F.col("features")))
+    return df.withColumn(col, udf_pad(F.col(col)))
 
 
-def build_models() -> List[Tuple[str, str, object, List[Dict]]]:
+def build_models(nb_features_col: str) -> List[Tuple[str, str, object, List[Dict]]]:
     rf = RandomForestClassifier(labelCol="label", featuresCol="features", seed=42)
     rf_grid = (
         ParamGridBuilder()
@@ -126,9 +133,9 @@ def build_models() -> List[Tuple[str, str, object, List[Dict]]]:
         .build()
     )
 
-    # Multinomial NB expects nonnegative count-like magnitudes; raw mixed-scale
-    # numerics + one-hot would dominate (year, price). Scale to [0,1] first.
-    nb_scaler = MinMaxScaler(inputCol="features", outputCol="scaledFeatures")
+    # Multinomial NB: nonnegative, discrete/count-like dimensions. We train on
+    # `nb_features_col` (binary flag + OHE only when features_nb exists — see prepare_split).
+    nb_scaler = MinMaxScaler(inputCol=nb_features_col, outputCol="scaledFeatures")
     nb = NaiveBayes(
         labelCol="label",
         featuresCol="scaledFeatures",
@@ -162,14 +169,17 @@ def mirror_hdfs_csv(hdfs_dir: str, local_file: str) -> None:
 
 
 def train_and_evaluate(
-    train_df: DataFrame, test_df: DataFrame, args: argparse.Namespace
+    train_df: DataFrame,
+    test_df: DataFrame,
+    args: argparse.Namespace,
+    nb_features_col: str,
 ) -> DataFrame:
     results = []
     f1_evaluator = MulticlassClassificationEvaluator(
         labelCol="label", predictionCol="prediction", metricName="f1"
     )
 
-    for model_id, model_type, estimator, grid in build_models():
+    for model_id, model_type, estimator, grid in build_models(nb_features_col):
         cv = CrossValidator(
             estimator=estimator,
             estimatorParamMaps=grid,
@@ -209,17 +219,34 @@ def train_and_evaluate(
     )
 
 
+def resolve_nb_feature_column(train_df: DataFrame) -> str:
+    """Prefer binary + OHE-only vector for Naive Bayes when the split step wrote it."""
+    if "features_nb" in train_df.columns:
+        return "features_nb"
+    return "features"
+
+
 def main() -> None:
     args = parse_args()
     spark = build_spark_session(args)
     spark.sparkContext.setLogLevel("WARN")
 
     train_df = normalize_frame(spark.read.json(args.train_path))
-    feature_dim = max_feature_dimension(train_df)
-    train_df = pad_feature_vectors(train_df, feature_dim)
-    test_df = pad_feature_vectors(normalize_frame(spark.read.json(args.test_path)), feature_dim)
+    feature_dim = max_feature_dimension(train_df, "features")
+    train_df = pad_feature_vectors(train_df, feature_dim, "features")
+    if "features_nb" in train_df.columns:
+        nb_dim = max_feature_dimension(train_df, "features_nb")
+        train_df = pad_feature_vectors(train_df, nb_dim, "features_nb")
 
-    evaluation_df = train_and_evaluate(train_df, test_df, args)
+    test_df = normalize_frame(spark.read.json(args.test_path))
+    test_df = pad_feature_vectors(test_df, feature_dim, "features")
+    if "features_nb" in test_df.columns:
+        nb_dim = max_feature_dimension(test_df, "features_nb")
+        test_df = pad_feature_vectors(test_df, nb_dim, "features_nb")
+
+    nb_features_col = resolve_nb_feature_column(train_df)
+
+    evaluation_df = train_and_evaluate(train_df, test_df, args, nb_features_col)
     evaluation_hdfs_dir = f"{args.hdfs_output_base}/evaluation"
     evaluation_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(evaluation_hdfs_dir)
     mirror_hdfs_csv(evaluation_hdfs_dir, os.path.join(args.local_output_dir, "evaluation.csv"))
