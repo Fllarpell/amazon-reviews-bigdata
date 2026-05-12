@@ -1,9 +1,7 @@
-"""Legacy local data-prep helper for Stage 3.
+"""Legacy Stage III data preparation for local exploratory runs.
 
-This script is intentionally kept for exploratory/local QA only.
-Official Stage III execution for checklist compliance must use:
-- scripts/stage3.sh
-- Hive feature table + spark-submit on YARN
+Production Stage III uses ``scripts/stage3.sh`` (Hive feature layer,
+``spark-submit`` on YARN).
 """
 
 # pylint: disable=import-error,too-many-locals,too-many-statements

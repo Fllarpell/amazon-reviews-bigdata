@@ -1,3 +1,5 @@
+"""Map Amazon JSONL objects to flat CSV cells for bulk load."""
+
 import hashlib
 import json
 from datetime import datetime, timezone
@@ -5,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 
 def review_primary_key(row: Dict[str, Any]) -> str:
+    """Deterministic surrogate ``review_id`` from user, ASINs, and timestamp."""
     parts = "|".join(
         str(row.get(k, ""))
         for k in ("user_id", "parent_asin", "timestamp", "asin")

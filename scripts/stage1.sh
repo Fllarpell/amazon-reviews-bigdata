@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Stage I: staging CSV, PostgreSQL bulk load, row-count check, Parquet export and HDFS upload.
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

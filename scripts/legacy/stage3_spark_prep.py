@@ -1,3 +1,5 @@
+"""Legacy Spark-based split and summaries from a Hive feature Parquet path."""
+
 import argparse
 import csv
 from pathlib import Path

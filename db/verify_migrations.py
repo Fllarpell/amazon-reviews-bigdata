@@ -1,3 +1,5 @@
+"""Run ``verify.sql`` for each applied migration version."""
+
 import logging
 import sys
 from pathlib import Path

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Stage III distributed Spark ML training on YARN.
+"""Stage III Spark ML on YARN: tuned Random Forest and multinomial Naive Bayes.
 
-This script is designed to be launched only with spark-submit on YARN.
-It reads split datasets from JSON, trains/tunes multiple Spark ML models,
-stores predictions and evaluation to HDFS, and mirrors CSV artifacts locally.
+Launched with ``spark-submit --master yarn``. Reads train/test JSON from HDFS,
+writes predictions, evaluation metrics, and interpretability CSV under the
+configured local output directory, with copies mirrored from HDFS.
 """
 
 import argparse
@@ -147,8 +147,8 @@ def build_models(nb_features_col: str) -> List[Tuple[str, str, object, List[Dict
         .build()
     )
 
-    # Multinomial NB: nonnegative, discrete/count-like dimensions. We train on
-    # `nb_features_col` (binary flag + OHE only when features_nb exists — see prepare_split).
+    # Multinomial NB operates on nonnegative dimensions; `features_nb` holds only
+    # the verified-purchase flag and OHE columns (see stage3_prepare_split).
     nb_scaler = MinMaxScaler(inputCol=nb_features_col, outputCol="scaledFeatures")
     nb = NaiveBayes(
         labelCol="label",
@@ -278,13 +278,13 @@ def export_nb_tables(
 def write_interpretability_readme(out_dir: str) -> None:
     path = os.path.join(out_dir, "README_interpretability.txt")
     body = (
-        "Random Forest: rf_feature_importance.csv — Gini-based importance per tree feature; "
-        "higher values mean more splits using that coordinate.\n\n"
-        "Naive Bayes: nb_theta_long.csv — log P(feature_j | class_k) with Laplace smoothing "
-        "(Spark multinomial NB parameterization). Compare rows across class_index for the same "
-        "feature_name to see which rating level each discrete/OHE dimension favors.\n"
-        "nb_class_priors.csv — log pi(class_k).\n\n"
-        "NB is trained on features_nb (binary purchase flag + OHE only) when present.\n"
+        "Random Forest (rf_feature_importance.csv): Gini importance per coordinate in the "
+        "assembled feature vector.\n\n"
+        "Naive Bayes: nb_theta_long.csv lists log P(feature_j | class_k) under Spark "
+        "multinomial smoothing; compare rows with the same feature_name across class_index. "
+        "nb_class_priors.csv lists log pi(class_k).\n\n"
+        "Naive Bayes uses column features_nb (verified purchase plus one-hot encodings) "
+        "when that column exists.\n"
     )
     with open(path, "w", encoding="utf-8") as wf:
         wf.write(body)
@@ -380,7 +380,7 @@ def train_and_evaluate(
 
 
 def resolve_nb_feature_column(train_df: DataFrame) -> str:
-    """Prefer binary + OHE-only vector for Naive Bayes when the split step wrote it."""
+    """Use ``features_nb`` when present; otherwise ``features``."""
     if "features_nb" in train_df.columns:
         return "features_nb"
     return "features"

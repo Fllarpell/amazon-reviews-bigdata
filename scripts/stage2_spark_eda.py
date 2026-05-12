@@ -1,3 +1,5 @@
+"""Stage II Hive DDL and exploratory Spark SQL queries against HDFS-backed tables."""
+
 # pylint: disable=import-error
 import argparse
 import logging

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Stage III: Hive ML features (optional), train/test JSON split, Spark ML on YARN.
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

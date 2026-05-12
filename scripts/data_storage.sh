@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Apply migrations and bulk-load staging CSV into PostgreSQL.
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

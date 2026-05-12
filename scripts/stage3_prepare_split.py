@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare Stage III train/test artifacts from Hive feature layer on YARN."""
+"""Build Stage III train/test JSON and feature manifest from a Hive feature table (YARN)."""
 
 import argparse
 import json
@@ -87,9 +87,9 @@ def write_feature_manifest(path: str, features: list, features_nb: list) -> None
         "features": features,
         "features_nb": features_nb,
         "description": (
-            "Feature names in dense vector index order. "
-            "OHE uses dropLast reference category (omitted from vector). "
-            "NB uses features_nb (no raw numerics)."
+            "Dense-vector column order for `features` and `features_nb`; "
+            "one-hot encoding drops the reference category per Spark defaults; "
+            "`features_nb` excludes continuous numeric columns."
         ),
     }
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -234,8 +234,7 @@ def main() -> None:
         outputCol="features",
         handleInvalid="keep",
     ).transform(encoded)
-    # Narrow binary + one-hot only: multinomial Naive Bayes assumes discrete/count-like
-    # dimensions; continuous numerics are intentionally omitted for model2 (see stage3_ml_train).
+    # Multinomial Naive Bayes: `features_nb` omits continuous numerics (see stage3_ml_train).
     assembled_nb = VectorAssembler(
         inputCols=["verified_purchase_num", "main_category_ohe", "store_bucketed_ohe"],
         outputCol="features_nb",
@@ -248,7 +247,7 @@ def main() -> None:
     )
 
     sf = float(args.sample_fraction)
-    if not (0 < sf <= 1.0):
+    if not 0 < sf <= 1.0:
         raise ValueError("--sample-fraction must be in (0, 1]")
     if sf < 1.0:
         dataset = dataset.sample(withReplacement=False, fraction=sf, seed=42)

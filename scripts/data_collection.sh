@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Fetch Appliances JSONL and validate staged CSV.
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

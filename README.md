@@ -1,5 +1,7 @@
 # Amazon Appliances review pipeline
 
+Review JSONL is staged to CSV, loaded into PostgreSQL, exported to HDFS (Sqoop Parquet), analyzed in Hive, and summarized with Spark ML on YARN as described in `docs/`.
+
 Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [docs/project_description.txt](docs/project_description.txt) · ETL outline: [docs/pipeline.txt](docs/pipeline.txt).
 
 ## Documentation (full)
@@ -17,13 +19,13 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 
 | Path | Role |
 |------|------|
-| `scripts/stage1.sh` | Stage 1 entrypoint used by grader (`bash scripts/stage1.sh`) |
-| `scripts/stage2.sh` | Stage 2 entrypoint used by grader (`bash scripts/stage2.sh`) |
-| `scripts/stage3.sh` | Official Stage 3 entrypoint (Hive features -> Spark split -> Spark ML) |
+| `scripts/stage1.sh` | Stage I entrypoint (`bash scripts/stage1.sh`) |
+| `scripts/stage2.sh` | Stage II entrypoint (`bash scripts/stage2.sh`) |
+| `scripts/stage3.sh` | Stage III entrypoint (Hive features → Spark split → Spark ML) |
 | `scripts/stage3_prep.sh` | Compatibility wrapper for legacy local Stage 3 prep helper |
-| `scripts/data_collection.sh` | Stage 1 data collection/validation step |
-| `scripts/data_storage.sh` | Stage 1 PostgreSQL schema/load step |
-| `scripts/data_ingestion.sh` | Stage 1 Sqoop/HDFS ingestion step |
+| `scripts/data_collection.sh` | Stage I fetch JSONL and validate staging CSV |
+| `scripts/data_storage.sh` | Stage I PostgreSQL schema load |
+| `scripts/data_ingestion.sh` | Stage I Sqoop export and HDFS staging upload |
 | `scripts/stage2_spark_eda.py` | Stage 2 Spark SQL EDA runner (`q1..q3`) |
 | `scripts/legacy/stage3_data_prep.py` | Legacy local Stage 3 prep script for exploratory QA |
 | `bin/run_pipeline.sh` | Ordered orchestration (legacy-compatible end-to-end wrapper) |
@@ -40,7 +42,7 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 | `docs/` | Manuals (see **Documentation** above), `project_description.txt`, `pipeline.txt` |
 | `team34.pdf` | Team / course specification (PDF) |
 | `data/raw`, `data/staging` | Local datasets (gitignored) |
-| `secrets/` | ` .psql.pass` (gitignored) |
+| `secrets/` | `.psql.pass` (gitignored) |
 | `sql/` | Stage-oriented SQL / HiveQL (`create_tables.sql`, `import_data.sql`, `test_database.sql`, `stage3_ml_features.hql`) |
 | `output/` | Submission artifacts and generated reports |
 
@@ -74,17 +76,13 @@ Or run Stage 1 directly:
 bash scripts/stage1.sh
 ```
 
-Windows PowerShell (without `make`) local Docker helper:
+Without GNU Make, run the same Stage I sequence after configuring `.env` and starting Postgres (`docker compose up -d`):
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_local_docker_stage1.ps1
+```bash
+bash run_pipeline.sh
 ```
 
-Optional quick smoke run with smaller staged sample:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_local_docker_stage1.ps1 -JsonlLineLimit 10000
-```
+For a smaller smoke run, set `JSONL_LINE_LIMIT` in `.env` before invoking `run_pipeline.sh` or `make pipeline`.
 
 Or legacy wrapper: `bash run_pipeline.sh` / `bash bin/run_pipeline.sh`
 

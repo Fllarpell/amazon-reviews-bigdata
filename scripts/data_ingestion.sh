@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Sqoop Parquet export and upload of staging CSV to HDFS.
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

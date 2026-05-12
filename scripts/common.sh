@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Dotenv loading and portable Python interpreter resolution for Stage scripts.
 
 load_dotenv() {
   local root="$1"

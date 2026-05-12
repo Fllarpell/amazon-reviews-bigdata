@@ -1,3 +1,5 @@
+"""Download Appliances JSONL from Hugging Face and write linked staging CSV files."""
+
 import csv
 import json
 import logging

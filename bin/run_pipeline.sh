@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Stage I bulk path: fetch JSONL, validate staging, load Postgres, export Parquet, upload CSV to HDFS.
+
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONPATH="${ROOT}"

@@ -5,6 +5,8 @@
 #   ./scripts/clean_artifacts.sh --with-raw
 #   ./scripts/clean_artifacts.sh --skip-hdfs    # only local files; no hdfs dfs
 #   ./scripts/clean_artifacts.sh --with-raw --skip-hdfs
+#   ./scripts/clean_artifacts.sh --empty-trash   # optional: expunge old .Trash after deletes
+# HDFS deletes use -skipTrash so space is freed immediately (otherwise data stays under .Trash).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,14 +14,17 @@ cd "${ROOT}"
 
 with_raw=0
 skip_hdfs=0
+empty_trash=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-raw) with_raw=1 ;;
     --skip-hdfs) skip_hdfs=1 ;;
+    --empty-trash) empty_trash=1 ;;
     *)
-      echo "Usage: $0 [--with-raw] [--skip-hdfs]" >&2
-      echo "  --with-raw   also remove data/raw JSONL" >&2
-      echo "  --skip-hdfs  do not run hdfs dfs (local cleanup only)" >&2
+      echo "Usage: $0 [--with-raw] [--skip-hdfs] [--empty-trash]" >&2
+      echo "  --with-raw      also remove data/raw JSONL" >&2
+      echo "  --skip-hdfs     do not run hdfs dfs (local cleanup only)" >&2
+      echo "  --empty-trash   after Stage III rm, run hdfs dfs -expunge (empties .Trash when eligible)" >&2
       exit 1
       ;;
   esac
@@ -54,9 +59,9 @@ if [[ "${skip_hdfs}" -eq 0 ]] && command -v hdfs >/dev/null 2>&1; then
   HDFS_DATA_BASE="${HDFS_DATA_BASE:-project/data}"
   HDFS_OUTPUT_BASE="${HDFS_OUTPUT_BASE:-project/output}"
   HDFS_MODEL_BASE="${HDFS_MODEL_BASE:-project/models}"
-  echo "Removing Stage III HDFS paths: data base=${HDFS_DATA_BASE}, output=${HDFS_OUTPUT_BASE}, models=${HDFS_MODEL_BASE}" >&2
+  echo "Removing Stage III HDFS paths (skipTrash): data base=${HDFS_DATA_BASE}, output=${HDFS_OUTPUT_BASE}, models=${HDFS_MODEL_BASE}" >&2
   set +e
-  hdfs dfs -rm -r -f \
+  hdfs dfs -rm -r -f -skipTrash \
     "${HDFS_DATA_BASE}/train" \
     "${HDFS_DATA_BASE}/test" \
     "${HDFS_OUTPUT_BASE}/model1_predictions" \
@@ -66,6 +71,12 @@ if [[ "${skip_hdfs}" -eq 0 ]] && command -v hdfs >/dev/null 2>&1; then
     "${HDFS_MODEL_BASE}/model2"
   set -e
   echo "HDFS Stage III cleanup finished (rm -f ignores missing paths)." >&2
+  if [[ "${empty_trash}" -eq 1 ]]; then
+    echo "Running hdfs dfs -expunge to purge trash recovery interval (see fs.trash.interval)..." >&2
+    set +e
+    hdfs dfs -expunge
+    set -e
+  fi
 elif [[ "${skip_hdfs}" -eq 1 ]]; then
   echo "Skipping HDFS cleanup (--skip-hdfs)." >&2
 else

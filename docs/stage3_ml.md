@@ -19,7 +19,6 @@ Default feature table: **`ml_features`** in **`HIVE_DB_NAME`** (default `team34_
 
 ```bash
 bash scripts/stage3.sh
-# or: make stage3-ml
 ```
 
 The script executes:
@@ -63,11 +62,10 @@ The script executes:
 ```bash
 ssh team34@hadoop-01.uni.innopolis.ru
 cd /path/to/amazon-reviews-bigdata
-export HIVE_PASSWORD=...   # required for beeline path
+export HIVE_PASSWORD=...
+python3 -m pip install --user -r requirements.txt
 bash scripts/stage3.sh
 ```
-
-If `spark-submit` fails inside `find_spark_home.py` with `find_spec("pyspark")` / `NoneType` `origin`, **Spark’s home is not discoverable**: set **`SPARK_HOME`** to the directory that contains `bin/spark-submit` and `python/pyspark` (and optionally **`PYSPARK_PYTHON`** to a Python 3 on the cluster). `scripts/stage3.sh` tries to infer `SPARK_HOME` from the resolved `spark-submit` path; when that fails, define `SPARK_HOME` in `.env`.
 
 Overrides (aligned with `scripts/stage3.sh`):
 
@@ -80,6 +78,14 @@ Skip Hive refresh if the feature table already exists:
 ```bash
 RUN_HIVE_FEATURES=0 bash scripts/stage3.sh
 ```
+
+Faster smoke test (subsample **before** the 70/30 split, smaller CV grid workload):
+
+```bash
+STAGE3_QUICK=1 bash scripts/stage3.sh
+```
+
+Manual tuning: `STAGE3_SAMPLE_FRACTION=0.02` (default with quick mode is `0.05`), `STAGE3_CV_FOLDS=2`. For final runs use full data: unset `STAGE3_QUICK` and `STAGE3_SAMPLE_FRACTION=1` (or unset).
 
 Legacy helper notes:
 

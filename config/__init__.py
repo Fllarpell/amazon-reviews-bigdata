@@ -1,1 +1,1 @@
-# Package marker for tooling imports.
+"""Central constants package."""

@@ -1,3 +1,5 @@
+"""PostgreSQL helpers: password file, connection, and simple SQL execution."""
+
 from pathlib import Path
 
 import psycopg2

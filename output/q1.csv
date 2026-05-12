@@ -1,1 +1,49 @@
-main_category,review_count,avg_rating
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+q1_results.main_category,q1_results.purchase_type,q1_results.review_count,q1_results.avg_rating,q1_results.avg_helpful_vote,q1_results.low_rating_share
+AMAZON FASHION,verified,1025,4.198,0.5083,0.1532
+All Beauty,verified,633,4.3712,0.3254,0.1201
+All Electronics,verified,2389,4.4232,1.0762,0.1118
+Amazon Home,not_verified,25587,3.8794,1.9059,0.2310
+Amazon Home,verified,549775,4.2602,0.6606,0.1446
+Appliances,not_verified,35003,3.0537,4.9307,0.4456
+Appliances,verified,547117,4.1646,1.5424,0.1660
+Automotive,verified,8108,4.2247,0.9528,0.1492
+Baby,verified,3568,4.0563,0.6555,0.1819
+Camera & Photo,verified,2538,4.253,1.487,0.1497
+Cell Phones & Accessories,verified,1982,4.2876,2.2846,0.1216
+Computers,verified,597,4.2362,0.325,0.1407
+Grocery,not_verified,575,3.7722,17.0643,0.2470
+Grocery,verified,11176,4.284,0.6543,0.1394
+Health & Personal Care,verified,7110,4.1771,1.1709,0.1636
+Industrial & Scientific,not_verified,4280,3.7958,1.122,0.2472
+Industrial & Scientific,verified,93162,4.1585,0.7514,0.1733
+Musical Instruments,verified,601,4.4859,0.6606,0.0932
+Office Products,verified,1666,4.536,0.7299,0.0768
+Pet Supplies,verified,881,4.3439,0.9886,0.1158
+Sports & Outdoors,verified,4557,4.2572,0.6695,0.1378
+Tools & Home Improvement,not_verified,18560,3.9268,1.0982,0.2157
+Tools & Home Improvement,verified,753281,4.3248,0.4606,0.1331
+Toys & Games,verified,640,4.2578,0.3938,0.1484
+unknown,not_verified,1789,3.0911,3.5193,0.4360
+unknown,verified,26383,4.1819,0.8245,0.1631
+

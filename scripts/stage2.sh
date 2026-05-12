@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Stage II: Hive warehouse DDL and exploratory queries via Beeline (q1–q5).
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

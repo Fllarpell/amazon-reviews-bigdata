@@ -1,1 +1,1 @@
-# Package marker for tooling imports.
+"""Runtime helpers: logging, PostgreSQL access, migrations, staging transforms."""

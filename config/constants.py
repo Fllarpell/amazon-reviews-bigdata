@@ -1,3 +1,5 @@
+"""Paths, dataset URLs, environment-driven thresholds, and ML defaults."""
+
 import logging
 import os
 from pathlib import Path

@@ -1,3 +1,5 @@
+"""Legacy majority-class baseline on Stage III train/test JSON."""
+
 import argparse
 import json
 from collections import Counter, defaultdict

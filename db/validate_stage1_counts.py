@@ -1,3 +1,5 @@
+"""Compare staging CSV row counts with PostgreSQL ``metadata`` and ``reviews``."""
+
 import logging
 import sys
 from pathlib import Path
