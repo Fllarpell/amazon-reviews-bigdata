@@ -6,8 +6,6 @@ It reads split datasets from JSON, trains/tunes multiple Spark ML models,
 stores predictions and evaluation to HDFS, and mirrors CSV artifacts locally.
 """
 
-from __future__ import annotations
-
 import argparse
 import os
 from typing import Dict, List, Tuple

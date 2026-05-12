@@ -8,6 +8,15 @@ source "${ROOT}/scripts/common.sh"
 load_dotenv "${ROOT}"
 resolve_python_cmd "${ROOT}"
 
+# YARN often defaults to `python` 2.x; force workers/AM to use the same interpreter as this script.
+PY_FOR_SPARK="${PYSPARK_PYTHON:-${PYTHON_CMD[0]}}"
+export PYSPARK_PYTHON="${PY_FOR_SPARK}"
+SPARK_SUBMIT_PY_ARGS=(
+  --conf "spark.pyspark.python=${PY_FOR_SPARK}"
+  --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON=${PY_FOR_SPARK}"
+  --conf "spark.executorEnv.PYSPARK_PYTHON=${PY_FOR_SPARK}"
+)
+
 TEAM="${TEAM:-team34}"
 HIVE_DB_NAME="${HIVE_DB_NAME:-${HIVE_DB:-team34_projectdb}}"
 HIVE_DB_LOCATION="${HIVE_DB_LOCATION:-/user/team34/project/hive/warehouse/team34_projectdb}"
@@ -66,6 +75,7 @@ fi
 
 echo "[Stage3] Step 1/3: build train/test artifacts from Hive feature layer"
 "${SPARK_SUBMIT_BIN}" --master yarn \
+  "${SPARK_SUBMIT_PY_ARGS[@]}" \
   "${ROOT}/scripts/stage3_prepare_split.py" \
   --team "${TEAM}" \
   --database "${HIVE_DB_NAME}" \
@@ -81,6 +91,7 @@ echo "[Stage3] Step 1/3: build train/test artifacts from Hive feature layer"
 
 echo "[Stage3] Step 2/3: train/tune Spark ML models on YARN"
 "${SPARK_SUBMIT_BIN}" --master yarn \
+  "${SPARK_SUBMIT_PY_ARGS[@]}" \
   "${ROOT}/scripts/stage3_ml_train.py" \
   --team "${TEAM}" \
   --train-path "${HDFS_DATA_BASE}/train" \

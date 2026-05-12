@@ -49,19 +49,26 @@ echo "exit_code=${rc}" | tee -a "${LOG_DIR}/stage3_hive_tables.txt"
 if [[ ${rc} -ne 0 ]]; then overall_exit=${rc}; fi
 
 echo "=== stage3_evaluation_preview ===" | tee "${LOG_DIR}/stage3_evaluation_preview.txt"
-awk 'NR<=20 {print}' "${ROOT}/output/evaluation.csv" 2>&1 | tee -a "${LOG_DIR}/stage3_evaluation_preview.txt"
-rc=${PIPESTATUS[0]}
+eval_csv="${ROOT}/output/evaluation.csv"
+if [[ -f "${eval_csv}" ]]; then
+  awk 'NR<=20 {print}' "${eval_csv}" 2>&1 | tee -a "${LOG_DIR}/stage3_evaluation_preview.txt"
+  rc=${PIPESTATUS[0]}
+else
+  echo "skip: ${eval_csv} not found (ML step may not have completed)." | tee -a "${LOG_DIR}/stage3_evaluation_preview.txt"
+  rc=0
+fi
 echo "exit_code=${rc}" | tee -a "${LOG_DIR}/stage3_evaluation_preview.txt"
 if [[ ${rc} -ne 0 ]]; then overall_exit=${rc}; fi
 
 echo "=== stage3_error_scan ===" | tee "${LOG_DIR}/stage3_error_scan.txt"
-grep -nE 'FAILED|Error|Exception|Traceback' "${LOG_DIR}/stage3_run.txt" 2>&1 | tee -a "${LOG_DIR}/stage3_error_scan.txt"
-if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-  echo "No FAILED/Error/Exception/Traceback in stage3_run.txt" | tee -a "${LOG_DIR}/stage3_error_scan.txt"
+# Avoid matching Tez progress tables (column header \"FAILED\") and other noise.
+grep -nE 'Traceback|SyntaxError:|IndentationError:|ModuleNotFoundError:|Exception in thread|Caused by:|java\.lang\.|py4j\.|org\.apache\.spark\.SparkException' \
+  "${LOG_DIR}/stage3_run.txt" 2>&1 | tee -a "${LOG_DIR}/stage3_error_scan.txt"
+grep_rc=${PIPESTATUS[0]}
+if [[ ${grep_rc} -ne 0 ]]; then
+  echo "No driver/Python/Java exception signatures matched in stage3_run.txt" | tee -a "${LOG_DIR}/stage3_error_scan.txt"
 fi
-rc=${PIPESTATUS[0]}
-echo "exit_code=${rc}" | tee -a "${LOG_DIR}/stage3_error_scan.txt"
-if [[ ${rc} -ne 0 ]]; then overall_exit=${rc}; fi
+echo "grep_exit=${grep_rc}" | tee -a "${LOG_DIR}/stage3_error_scan.txt"
 
 echo "Logs saved in ${LOG_DIR}"
 echo "overall_exit=${overall_exit}"

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Prepare Stage III train/test artifacts from Hive feature layer on YARN."""
 
-from __future__ import annotations
-
 import argparse
 import os
 
