@@ -15,7 +15,8 @@ from pyspark.ml.classification import (
     RandomForestClassifier,
 )
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-from pyspark.ml.functions import array_to_vector
+from pyspark.ml.functions import array_to_vector, vector_to_array
+from pyspark.ml.linalg import VectorUDT, Vectors
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -69,6 +70,30 @@ def normalize_frame(df: DataFrame) -> DataFrame:
         normalized = df
 
     return normalized.withColumn("label", F.col("label").cast("double")).select("features", "label")
+
+
+def max_feature_dimension(df: DataFrame) -> int:
+    row = df.select(F.max(F.size(vector_to_array(F.col("features")))).alias("mx")).collect()[0]
+    mx = row["mx"]
+    if mx is None:
+        raise ValueError("Cannot infer feature dimension (empty frame or all-null features)")
+    return int(mx)
+
+
+def pad_feature_vectors(df: DataFrame, dim: int) -> DataFrame:
+    def pad(vec):
+        if vec is None:
+            return Vectors.dense([0.0] * dim)
+        arr = vec.toArray()
+        n = len(arr)
+        if n == dim:
+            return Vectors.dense(arr)
+        if n < dim:
+            return Vectors.dense(list(arr) + [0.0] * (dim - n))
+        return Vectors.dense(arr[:dim])
+
+    udf_pad = F.udf(pad, VectorUDT())
+    return df.withColumn("features", udf_pad(F.col("features")))
 
 
 def build_models() -> List[Tuple[str, str, object, List[Dict]]]:
@@ -163,7 +188,9 @@ def main() -> None:
     spark.sparkContext.setLogLevel("WARN")
 
     train_df = normalize_frame(spark.read.json(args.train_path))
-    test_df = normalize_frame(spark.read.json(args.test_path))
+    feature_dim = max_feature_dimension(train_df)
+    train_df = pad_feature_vectors(train_df, feature_dim)
+    test_df = pad_feature_vectors(normalize_frame(spark.read.json(args.test_path)), feature_dim)
 
     evaluation_df = train_and_evaluate(train_df, test_df, args)
     evaluation_hdfs_dir = f"{args.hdfs_output_base}/evaluation"
