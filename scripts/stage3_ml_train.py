@@ -36,8 +36,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hdfs-model-base", default="project/models")
     parser.add_argument("--hive-metastore-uri", default="thrift://hadoop-02.uni.innopolis.ru:9883")
     parser.add_argument("--warehouse-dir", default="project/hive/warehouse")
-    parser.add_argument("--cv-folds", type=int, default=3)
-    parser.add_argument("--cv-parallelism", type=int, default=3)
+    parser.add_argument(
+        "--cv-folds",
+        type=int,
+        default=int(os.environ.get("STAGE3_CV_FOLDS", "3")),
+    )
+    parser.add_argument(
+        "--cv-parallelism",
+        type=int,
+        default=int(os.environ.get("STAGE3_CV_PARALLELISM", "3")),
+    )
     return parser.parse_args()
 
 

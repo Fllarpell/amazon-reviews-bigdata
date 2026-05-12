@@ -28,6 +28,12 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Parquet table directory (Hive LOCATION); avoids spark.table() SQL parser",
     )
+    parser.add_argument(
+        "--sample-fraction",
+        type=float,
+        default=float(os.environ.get("STAGE3_SAMPLE_FRACTION", "1.0")),
+        help="Use a random fraction of rows before train/test split (1.0 = all). Env: STAGE3_SAMPLE_FRACTION",
+    )
     return parser.parse_args()
 
 
@@ -161,6 +167,12 @@ def main() -> None:
         handleInvalid="keep",
     ).transform(encoded)
     dataset = assembled.select("features", F.col(label_col).alias("label"))
+
+    sf = float(args.sample_fraction)
+    if not (0 < sf <= 1.0):
+        raise ValueError("--sample-fraction must be in (0, 1]")
+    if sf < 1.0:
+        dataset = dataset.sample(withReplacement=False, fraction=sf, seed=42)
 
     train_df, test_df = dataset.randomSplit([0.7, 0.3], seed=42)
     train_df.coalesce(1).write.mode("overwrite").json(args.hdfs_train_dir)

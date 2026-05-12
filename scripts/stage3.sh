@@ -6,6 +6,12 @@ cd "${ROOT}"
 
 source "${ROOT}/scripts/common.sh"
 load_dotenv "${ROOT}"
+if [[ "${STAGE3_QUICK:-0}" == "1" ]]; then
+  export STAGE3_SAMPLE_FRACTION="${STAGE3_SAMPLE_FRACTION:-0.05}"
+  export STAGE3_CV_FOLDS="${STAGE3_CV_FOLDS:-2}"
+  export STAGE3_CV_PARALLELISM="${STAGE3_CV_PARALLELISM:-2}"
+  echo "[Stage3] STAGE3_QUICK=1 sample_fraction=${STAGE3_SAMPLE_FRACTION} cv_folds=${STAGE3_CV_FOLDS}" >&2
+fi
 resolve_python_cmd "${ROOT}"
 
 PY_FOR_SPARK="${PYSPARK_PYTHON:-${PYTHON_CMD[0]}}"
@@ -213,7 +219,8 @@ echo "[Stage3] Step 1/3: build train/test artifacts from Hive feature layer"
   --hdfs-train-dir "${HDFS_DATA_BASE}/train" \
   --hdfs-test-dir "${HDFS_DATA_BASE}/test" \
   --local-train-json "${ROOT}/data/train.json" \
-  --local-test-json "${ROOT}/data/test.json"
+  --local-test-json "${ROOT}/data/test.json" \
+  --sample-fraction "${STAGE3_SAMPLE_FRACTION:-1.0}"
 
 echo "[Stage3] Step 2/3: train/tune Spark ML models on YARN"
 "${SPARK_SUBMIT_BIN}" --master yarn \
@@ -227,7 +234,9 @@ echo "[Stage3] Step 2/3: train/tune Spark ML models on YARN"
   --hdfs-model-base "${HDFS_MODEL_BASE}" \
   --local-output-dir "${ROOT}/output" \
   --hive-metastore-uri "${HIVE_METASTORE_URI}" \
-  --warehouse-dir "${WAREHOUSE_DIR}"
+  --warehouse-dir "${WAREHOUSE_DIR}" \
+  --cv-folds "${STAGE3_CV_FOLDS:-3}" \
+  --cv-parallelism "${STAGE3_CV_PARALLELISM:-3}"
 
 for artifact in \
   "${ROOT}/data/train.json" \
