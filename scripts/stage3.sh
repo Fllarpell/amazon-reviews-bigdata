@@ -59,6 +59,33 @@ stage3_export_spark_pythonpath() {
   shopt -u nullglob
 }
 
+# When spark-submit lives under /usr/local/bin (wrapper), parent-of-bin is not Spark; try distro layouts.
+stage3_try_known_spark_roots() {
+  local cand resolved
+  local -a roots
+  if [[ -n "${SPARK_HOME_CANDIDATES:-}" ]]; then
+    IFS=':' read -ra roots <<< "${SPARK_HOME_CANDIDATES}"
+  fi
+  roots+=(
+    "/usr/hdp/current/spark3-client"
+    "/usr/hdp/current/spark2-client"
+    "/usr/lib/spark3"
+    "/usr/lib/spark"
+    "/opt/spark"
+  )
+  for cand in "${roots[@]}"; do
+    [[ -z "${cand// }" ]] && continue
+    resolved="$(readlink -f "${cand}" 2>/dev/null || echo "${cand}")"
+    if [[ -d "${resolved}/python/pyspark" ]]; then
+      export SPARK_HOME="${resolved}"
+      stage3_export_spark_pythonpath
+      echo "[Stage3] SPARK_HOME from directory search: ${SPARK_HOME}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 stage3_resolve_spark_home() {
   local sub sub_real candidate
   if [[ -n "${SPARK_HOME:-}" ]]; then
@@ -85,12 +112,17 @@ stage3_resolve_spark_home() {
   if [[ -d "${candidate}/python/pyspark" ]]; then
     export SPARK_HOME="${candidate}"
     stage3_export_spark_pythonpath
-    echo "[Stage3] SPARK_HOME was unset; inferred SPARK_HOME=${SPARK_HOME}"
+    echo "[Stage3] SPARK_HOME was unset; inferred SPARK_HOME=${SPARK_HOME} from spark-submit path"
     return 0
   fi
 
-  echo "[Stage3] Set SPARK_HOME in .env to your Spark root (directory containing bin/spark-submit and python/pyspark)." >&2
-  echo "[Stage3] spark-submit is ${sub_real}; tried ${candidate} — not a Spark installation layout." >&2
+  if stage3_try_known_spark_roots; then
+    return 0
+  fi
+
+  echo "[Stage3] Could not find Spark (no python/pyspark). spark-submit is ${sub_real} (tried parent ${candidate})." >&2
+  echo "[Stage3] Set SPARK_HOME in .env to the install root, or SPARK_HOME_CANDIDATES=path1:path2 with colon-separated roots." >&2
+  echo "[Stage3] On HDP-style nodes try: ls /usr/hdp/current" >&2
   return 1
 }
 
