@@ -9,6 +9,12 @@ load_dotenv "${ROOT}"
 resolve_python_cmd "${ROOT}"
 
 PY_FOR_SPARK="${PYSPARK_PYTHON:-${PYTHON_CMD[0]}}"
+if [[ -z "${PYSPARK_PYTHON:-}" ]] && ! "${PY_FOR_SPARK}" -c "import numpy" >/dev/null 2>&1; then
+  if [[ -x "/usr/bin/python3" ]] && /usr/bin/python3 -c "import numpy" >/dev/null 2>&1; then
+    PY_FOR_SPARK="/usr/bin/python3"
+    echo "[Stage3] Using /usr/bin/python3 for Spark (numpy missing for ${PYTHON_CMD[0]})" >&2
+  fi
+fi
 export PYSPARK_PYTHON="${PY_FOR_SPARK}"
 SPARK_SUBMIT_PY_ARGS=(
   --conf "spark.pyspark.python=${PY_FOR_SPARK}"
@@ -126,9 +132,9 @@ stage3_resolve_spark_home() {
 stage3_resolve_spark_home || exit 1
 
 if ! "${PY_FOR_SPARK}" -c "import numpy" >/dev/null 2>&1; then
-  echo "[Stage3] NumPy is required for PySpark ML on the driver (same interpreter as PYSPARK_PYTHON)." >&2
-  echo "[Stage3] Install with: ${PY_FOR_SPARK} -m pip install --user numpy" >&2
-  echo "[Stage3] Or from repo: pip install -r requirements.txt (use the same python you set as PYSPARK_PYTHON)." >&2
+  echo "[Stage3] NumPy is required for PySpark ML on the driver (${PY_FOR_SPARK})." >&2
+  echo "[Stage3] Install: ${PY_FOR_SPARK} -m pip install --user -r requirements.txt" >&2
+  echo "[Stage3] Or set PYSPARK_PYTHON to the interpreter where you ran pip (e.g. /usr/bin/python3)." >&2
   exit 1
 fi
 
