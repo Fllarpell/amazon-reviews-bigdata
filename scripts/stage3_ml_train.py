@@ -13,9 +13,7 @@ import os
 from typing import Dict, List, Tuple
 
 from pyspark.ml.classification import (
-    LinearSVC,
     NaiveBayes,
-    OneVsRest,
     RandomForestClassifier,
 )
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
@@ -70,7 +68,7 @@ def normalize_frame(df: DataFrame) -> DataFrame:
     return normalized.withColumn("label", F.col("label").cast("double")).select("features", "label")
 
 
-def build_models() -> List[Tuple[str, object, List[Dict]]]:
+def build_models() -> List[Tuple[str, str, object, List[Dict]]]:
     rf = RandomForestClassifier(labelCol="label", featuresCol="features", seed=42)
     rf_grid = (
         ParamGridBuilder()
@@ -84,19 +82,9 @@ def build_models() -> List[Tuple[str, object, List[Dict]]]:
         nb.modelType, ["multinomial", "bernoulli"]
     ).build()
 
-    base_svc = LinearSVC(labelCol="label", featuresCol="features")
-    ovr_svc = OneVsRest(labelCol="label", featuresCol="features", classifier=base_svc)
-    svc_grid = (
-        ParamGridBuilder()
-        .addGrid(base_svc.regParam, [0.01, 0.1, 0.5])
-        .addGrid(base_svc.standardization, [True, False])
-        .build()
-    )
-
     return [
-        ("model1_random_forest", rf, rf_grid),
-        ("model2_naive_bayes", nb, nb_grid),
-        ("model3_svm_ovr", ovr_svc, svc_grid),
+        ("model1", "random_forest", rf, rf_grid),
+        ("model2", "naive_bayes", nb, nb_grid),
     ]
 
 
@@ -126,30 +114,7 @@ def train_and_evaluate(
         labelCol="label", predictionCol="prediction", metricName="f1"
     )
 
-    # Baseline model before hyperparameter tuning.
-    baseline = RandomForestClassifier(labelCol="label", featuresCol="features", seed=42)
-    baseline_model = baseline.fit(train_df)
-    baseline_predictions = baseline_model.transform(test_df).select("label", "prediction")
-    baseline_hdfs_dir = f"{args.hdfs_output_base}/baseline_random_forest_predictions"
-    baseline_predictions.coalesce(1).write.mode("overwrite").option("header", "true").csv(
-        baseline_hdfs_dir
-    )
-    mirror_hdfs_csv(
-        baseline_hdfs_dir,
-        os.path.join(args.local_output_dir, "baseline_random_forest_predictions.csv"),
-    )
-    baseline_metrics = evaluate_predictions(baseline_predictions)
-    results.append(
-        (
-            "baseline_random_forest",
-            baseline_metrics["f1"],
-            baseline_metrics["accuracy"],
-            baseline_metrics["weightedPrecision"],
-            baseline_metrics["weightedRecall"],
-        )
-    )
-
-    for model_name, estimator, grid in build_models():
+    for model_id, model_type, estimator, grid in build_models():
         cv = CrossValidator(
             estimator=estimator,
             estimatorParamMaps=grid,
@@ -160,20 +125,21 @@ def train_and_evaluate(
         cv_model = cv.fit(train_df)
         best_model = cv_model.bestModel
 
-        model_hdfs_path = f"{args.hdfs_model_base}/{model_name}"
+        model_hdfs_path = f"{args.hdfs_model_base}/{model_id}"
         best_model.write().overwrite().save(model_hdfs_path)
 
         predictions = best_model.transform(test_df).select("label", "prediction")
-        model_pred_hdfs_dir = f"{args.hdfs_output_base}/{model_name}_predictions"
+        model_pred_hdfs_dir = f"{args.hdfs_output_base}/{model_id}_predictions"
         predictions.coalesce(1).write.mode("overwrite").option("header", "true").csv(model_pred_hdfs_dir)
 
-        local_pred_file = os.path.join(args.local_output_dir, f"{model_name}_predictions.csv")
+        local_pred_file = os.path.join(args.local_output_dir, f"{model_id}_predictions.csv")
         mirror_hdfs_csv(model_pred_hdfs_dir, local_pred_file)
 
         metrics = evaluate_predictions(predictions)
         results.append(
             (
-                model_name,
+                model_id,
+                model_type,
                 metrics["f1"],
                 metrics["accuracy"],
                 metrics["weightedPrecision"],
@@ -183,7 +149,8 @@ def train_and_evaluate(
 
     spark = train_df.sparkSession
     return spark.createDataFrame(
-        results, ["model", "f1", "accuracy", "weighted_precision", "weighted_recall"]
+        results,
+        ["model", "model_type", "f1", "accuracy", "weighted_precision", "weighted_recall"],
     )
 
 

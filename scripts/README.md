@@ -14,7 +14,7 @@ For Stage 2:
 bash scripts/stage2.sh
 ```
 
-Stage 2 uses `beeline` and writes `output/hive_results.txt` plus `output/q1.csv..output/q4.csv`.
+Stage 2 uses `beeline` and writes `output/hive_results.txt` plus `output/q1.csv..output/q5.csv`.
 
 To remove generated artifacts before a fresh pipeline run:
 
@@ -28,8 +28,22 @@ To remove generated artifacts and raw JSONL files:
 bash scripts/clean_artifacts.sh --with-raw
 ```
 
-For ML data preparation before Stage 3:
+Official Stage III run (Hive feature layer + Spark ML on YARN):
+
+```bash
+bash scripts/stage3.sh
+```
+
+Collect Stage III run/check logs in `output/logs_stage3`:
+
+```bash
+bash scripts/collect_stage3_logs.sh
+```
+
+Legacy local helper (not part of official Stage III checklist flow):
 
 ```bash
 bash scripts/stage3_prep.sh
 ```
+
+Legacy Stage 3 implementation files are kept in `scripts/legacy/`.

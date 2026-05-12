@@ -1,6 +1,5 @@
 import argparse
 import csv
-import json
 from pathlib import Path
 
 from pyspark.sql import SparkSession

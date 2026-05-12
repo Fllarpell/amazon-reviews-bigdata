@@ -15,7 +15,7 @@ lint:
 		db/verify_migrations.py \
 		db/revert_last_migration.py \
 		scripts/stage2_spark_eda.py \
-		scripts/stage3_data_prep.py
+		scripts/legacy/stage3_data_prep.py
 
 docker-up:
 	docker compose up -d
@@ -59,4 +59,4 @@ pipeline-all: secrets docker-up hadoop-up hadoop-build-sqoop
 	bash -lc 'set -a && [ -f "$(ROOT)/.env" ] && . "$(ROOT)/.env"; set +a; unset JSONL_LINE_LIMIT SKIP_SQOOP; export USE_DOCKER_HADOOP=1; cd "$(ROOT)" && bash bin/run_pipeline.sh'
 
 stage3-ml:
-	bash $(ROOT)/scripts/stage3_dummy.sh
+	bash $(ROOT)/scripts/stage3.sh

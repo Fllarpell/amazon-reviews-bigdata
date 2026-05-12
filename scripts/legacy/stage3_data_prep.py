@@ -1,3 +1,11 @@
+"""Legacy local data-prep helper for Stage 3.
+
+This script is intentionally kept for exploratory/local QA only.
+Official Stage III execution for checklist compliance must use:
+- scripts/stage3.sh
+- Hive feature table + spark-submit on YARN
+"""
+
 # pylint: disable=import-error,too-many-locals,too-many-statements
 import csv
 import hashlib
@@ -8,7 +16,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Dict, Iterable
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -322,6 +330,9 @@ def _write_quality_report(lines: Iterable[str], target: Path) -> None:
 
 def main() -> None:
     setup_logging()
+    LOGGER.warning(
+        "Running legacy local CSV prep helper. Official Stage III flow is scripts/stage3.sh (Hive + YARN)."
+    )
     LOGGER.info("Starting ML data prep from %s", ML_INPUT_REVIEWS_CSV)
     profile_before = _profile_before(ML_INPUT_REVIEWS_CSV)
     _write_profile_before(profile_before, OUTPUT_PROFILE_BEFORE)

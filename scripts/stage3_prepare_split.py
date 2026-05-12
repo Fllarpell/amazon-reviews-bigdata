@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 
-from pyspark.ml.feature import StringIndexer, VectorAssembler
+from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import NumericType
@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--local-test-json", default="data/test.json")
     parser.add_argument("--hive-metastore-uri", default="thrift://hadoop-02.uni.innopolis.ru:9883")
     parser.add_argument("--warehouse-dir", default="project/hive/warehouse")
+    parser.add_argument("--store-top-k", type=int, default=200)
     return parser.parse_args()
 
 
@@ -52,15 +53,28 @@ def main() -> None:
     spark = build_spark(args)
     spark.sparkContext.setLogLevel("WARN")
 
-    source = spark.table(f"{args.database}.{args.feature_table}").na.drop()
+    source = spark.table(f"{args.database}.{args.feature_table}")
     if args.label_col not in source.columns:
         raise ValueError(f"Label column '{args.label_col}' is missing in feature table")
 
-    numeric_feature_cols = [
-        field.name
-        for field in source.schema.fields
-        if field.name != args.label_col and isinstance(field.dataType, NumericType)
-    ]
+    for required_col in ("verified_purchase", "main_category", "store"):
+        if required_col not in source.columns:
+            raise ValueError(f"Required feature column '{required_col}' is missing in feature table")
+
+    numeric_feature_cols = []
+    for col_name in (
+        "helpful_vote",
+        "price",
+        "average_rating",
+        "rating_number",
+        "review_year",
+        "review_month",
+    ):
+        if col_name not in source.columns:
+            raise ValueError(f"Required numeric feature column '{col_name}' is missing")
+        if not isinstance(source.schema[col_name].dataType, NumericType):
+            raise ValueError(f"Feature column '{col_name}' must be numeric")
+        numeric_feature_cols.append(col_name)
 
     if not numeric_feature_cols:
         raise ValueError("No numeric columns available for VectorAssembler features")
@@ -76,7 +90,61 @@ def main() -> None:
         prepared = source.withColumn("label", F.col(args.label_col).cast("double"))
         label_col = "label"
 
-    assembled = VectorAssembler(inputCols=numeric_feature_cols, outputCol="features").transform(prepared)
+    normalized_main_category = F.trim(F.coalesce(F.col("main_category").cast("string"), F.lit("")))
+    normalized_store = F.trim(F.coalesce(F.col("store").cast("string"), F.lit("")))
+
+    prepared = (
+        prepared.withColumn(
+            "main_category_clean",
+            F.when(F.length(normalized_main_category) > 0, normalized_main_category).otherwise(
+                F.lit("unknown")
+            ),
+        )
+        .withColumn(
+            "store_clean",
+            F.when(F.length(normalized_store) > 0, normalized_store).otherwise(F.lit("unknown")),
+        )
+        .withColumn(
+            "verified_purchase_num",
+            F.when(F.col("verified_purchase") == F.lit(True), F.lit(1.0)).otherwise(F.lit(0.0)),
+        )
+    )
+
+    if args.store_top_k <= 0:
+        raise ValueError("--store-top-k must be > 0")
+
+    top_stores_rows = (
+        prepared.groupBy("store_clean")
+        .count()
+        .orderBy(F.desc("count"), F.asc("store_clean"))
+        .limit(args.store_top_k)
+        .collect()
+    )
+    top_stores = [row["store_clean"] for row in top_stores_rows]
+
+    prepared = prepared.withColumn(
+        "store_bucketed",
+        F.when(F.col("store_clean").isin(top_stores), F.col("store_clean")).otherwise(F.lit("other")),
+    )
+
+    indexer = StringIndexer(
+        inputCols=["main_category_clean", "store_bucketed"],
+        outputCols=["main_category_idx", "store_bucketed_idx"],
+        handleInvalid="keep",
+    )
+    indexed = indexer.fit(prepared).transform(prepared)
+
+    encoder = OneHotEncoder(
+        inputCols=["main_category_idx", "store_bucketed_idx"],
+        outputCols=["main_category_ohe", "store_bucketed_ohe"],
+        handleInvalid="keep",
+    )
+    encoded = encoder.fit(indexed).transform(indexed)
+
+    assembler_input_cols = (
+        numeric_feature_cols + ["verified_purchase_num", "main_category_ohe", "store_bucketed_ohe"]
+    )
+    assembled = VectorAssembler(inputCols=assembler_input_cols, outputCol="features").transform(encoded)
     dataset = assembled.select("features", F.col(label_col).alias("label"))
 
     train_df, test_df = dataset.randomSplit([0.7, 0.3], seed=42)

@@ -19,19 +19,20 @@ Formal team specification (PDF): [team34.pdf](team34.pdf) · Short overview: [do
 |------|------|
 | `scripts/stage1.sh` | Stage 1 entrypoint used by grader (`bash scripts/stage1.sh`) |
 | `scripts/stage2.sh` | Stage 2 entrypoint used by grader (`bash scripts/stage2.sh`) |
-| `scripts/stage3_prep.sh` | Data preparation pipeline before Stage 3 ML |
+| `scripts/stage3.sh` | Official Stage 3 entrypoint (Hive features -> Spark split -> Spark ML) |
+| `scripts/stage3_prep.sh` | Compatibility wrapper for legacy local Stage 3 prep helper |
 | `scripts/data_collection.sh` | Stage 1 data collection/validation step |
 | `scripts/data_storage.sh` | Stage 1 PostgreSQL schema/load step |
 | `scripts/data_ingestion.sh` | Stage 1 Sqoop/HDFS ingestion step |
 | `scripts/stage2_spark_eda.py` | Stage 2 Spark SQL EDA runner (`q1..q3`) |
-| `scripts/stage3_data_prep.py` | Stage 3 prep runner (cleaning, validation, train/test split) |
+| `scripts/legacy/stage3_data_prep.py` | Legacy local Stage 3 prep script for exploratory QA |
 | `bin/run_pipeline.sh` | Ordered orchestration (legacy-compatible end-to-end wrapper) |
 | `run_pipeline.sh` | Thin wrapper that calls `bin/run_pipeline.sh` |
 | `config/constants.py` | Paths, URLs, thresholds, Postgres/HDFS env |
 | `etl/` | **Extract + stage**: fetch JSONL, emit CSV; validate staging |
 | `db/` | **Load + schema**: migrations, bulk load, verify, revert |
 | `export/` | **Export**: Sqoop Parquet+Snappy (Stage 1) → HDFS; staging CSV → HDFS; optional `HDFS_REPLICATION` |
-| `scripts/` | Stage entrypoints + Stage III Spark ML (`spark-submit --master yarn` via `scripts/stage3_dummy.sh` / `scripts/stage3.sh`) |
+| `scripts/` | Stage entrypoints + Stage III Spark ML (`spark-submit --master yarn` via `scripts/stage3.sh`) |
 | `lib/` | Shared Python: logging, DB, migration runner |
 | `migrations/versions/<id>/` | `deploy/*.sql`, `revert.sql`, `verify.sql`; ledger `pipeline.schema_migrations` |
 | `reference/schema/` | Read-only DDL split (mirrors `deploy/`); not run by tools |
@@ -93,7 +94,7 @@ Run Stage 2:
 bash scripts/stage2.sh
 ```
 
-Stage 2 runs through `beeline` and writes `output/hive_results.txt`, `output/q1.csv`, `output/q2.csv`, `output/q3.csv`, `output/q4.csv`.  
+Stage 2 runs through `beeline` and writes `output/hive_results.txt`, `output/q1.csv`, `output/q2.csv`, `output/q3.csv`, `output/q4.csv`, `output/q5.csv`.  
 Optional environment variables for cluster runs: `HIVE_JDBC_URL`, `HIVE_USER`, `HIVE_PASSWORD`, `HIVE_DB_NAME`, `HIVE_DB_LOCATION`, `HDFS_WAREHOUSE_BASE`.
 
 Clean generated artifacts before a fresh run:
@@ -108,21 +109,26 @@ Also remove raw JSONL files:
 bash scripts/clean_artifacts.sh --with-raw
 ```
 
-Run Stage 3 data preparation:
+Run official Stage III (Hive feature table + split + model1/model2 + evaluation):
+
+```bash
+bash scripts/stage3.sh
+```
+
+Stage III feature policy (official flow):
+- Numeric: `helpful_vote`, `price`, `average_rating`, `rating_number`, `review_year`, `review_month`
+- Boolean: `verified_purchase` as binary feature
+- Categorical: `main_category` + `store` with Top-K bucketing (`STAGE3_STORE_TOP_K`, default `200`) and `other` fallback
+- Excluded by design: text fields (`review_text`, `review_title`) and high-cardinality IDs (`review_id`, `user_id`, `asin`, `parent_asin`)
+
+Legacy local prep helper (not the official Stage III checklist flow):
 
 ```bash
 bash scripts/stage3_prep.sh
 ```
 
-Distributed Stage III (Hive feature table + `spark-submit --master yarn` split + ML tuning/evaluation):
-
-```bash
-# Requires HIVE_PASSWORD (and beeline) on the cluster; see docs/stage3_ml.md
-bash scripts/stage3_dummy.sh
-# or: make stage3-ml
-```
-
-Local smoke test only (not the YARN ML assignment path): `STAGE3_DUMMY_ONLY=1 bash scripts/stage3_dummy.sh`.
+`scripts/stage3_dummy.sh` is deprecated and delegates to `scripts/stage3.sh`.
+Legacy implementation files are stored in `scripts/legacy/`.
 
 ### Full dataset
 
@@ -169,6 +175,7 @@ On the cluster, use **native** `hdfs` / `sqoop` with **`USE_DOCKER_HADOOP` unset
 | `SQOOP_PG_HOST` | Hostname for JDBC from Sqoop container (default `host.docker.internal`) |
 | `HDFS_WAREHOUSE_BASE`, `JDBC_URL` | Sqoop / HDFS paths and JDBC |
 | `HDFS_REPLICATION` | If set (e.g. `2`), run `hdfs dfs -setrep -R -w` on `HDFS_WAREHOUSE_BASE` after exports (save space on shared clusters) |
+| `STAGE3_STORE_TOP_K` | Number of most frequent `store` values kept as dedicated categories in Stage III split pipeline (default `200`) |
 
 ## Lint
 
