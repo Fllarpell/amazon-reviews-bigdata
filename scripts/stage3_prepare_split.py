@@ -155,7 +155,11 @@ def main() -> None:
     assembler_input_cols = (
         numeric_feature_cols + ["verified_purchase_num", "main_category_ohe", "store_bucketed_ohe"]
     )
-    assembled = VectorAssembler(inputCols=assembler_input_cols, outputCol="features").transform(encoded)
+    assembled = VectorAssembler(
+        inputCols=assembler_input_cols,
+        outputCol="features",
+        handleInvalid="keep",
+    ).transform(encoded)
     dataset = assembled.select("features", F.col(label_col).alias("label"))
 
     train_df, test_df = dataset.randomSplit([0.7, 0.3], seed=42)
