@@ -56,10 +56,15 @@ def normalize_frame(df: DataFrame) -> DataFrame:
 
     features_type = df.schema["features"].dataType
     if isinstance(features_type, ArrayType):
-        normalized = df.withColumn("features", array_to_vector(F.col("features")))
+        normalized = df.withColumn(
+            "features",
+            array_to_vector(F.expr("transform(features, x -> cast(x as double))")),
+        )
     elif hasattr(features_type, "names") and "values" in features_type.names:
-        # Spark JSON export from Vector often produces struct with `values` array.
-        normalized = df.withColumn("features", array_to_vector(F.col("features.values")))
+        normalized = df.withColumn(
+            "features",
+            array_to_vector(F.expr("transform(features.values, x -> cast(x as double))")),
+        )
     else:
         normalized = df
 
