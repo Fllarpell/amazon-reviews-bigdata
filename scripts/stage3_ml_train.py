@@ -7,16 +7,20 @@ stores predictions and evaluation to HDFS, and mirrors CSV artifacts locally.
 """
 
 import argparse
+import csv
+import json
 import math
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from pyspark.ml import Pipeline
+from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.classification import (
     NaiveBayes,
+    NaiveBayesModel,
     RandomForestClassifier,
+    RandomForestClassificationModel,
 )
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.feature import MinMaxScaler
@@ -47,6 +51,16 @@ def parse_args() -> argparse.Namespace:
         "--cv-parallelism",
         type=int,
         default=int(os.environ.get("STAGE3_CV_PARALLELISM", "3")),
+    )
+    parser.add_argument(
+        "--feature-manifest",
+        default=os.environ.get("STAGE3_FEATURE_MANIFEST") or "",
+        help="JSON with 'features' / 'features_nb' name lists from stage3_prepare_split.",
+    )
+    parser.add_argument(
+        "--interpretability-dir",
+        default="",
+        help="RF feature importance + NB theta/pi tables. Default: <local-output-dir>/interpretability",
     )
     return parser.parse_args()
 
@@ -160,6 +174,122 @@ def evaluate_predictions(predictions: DataFrame) -> Dict[str, float]:
     return metrics
 
 
+def resolve_interpret_dir(args: argparse.Namespace) -> str:
+    raw = (args.interpretability_dir or "").strip()
+    if raw:
+        return os.path.abspath(raw)
+    return os.path.join(os.path.abspath(args.local_output_dir), "interpretability")
+
+
+def resolve_feature_manifest_path(args: argparse.Namespace) -> Optional[str]:
+    explicit = (args.feature_manifest or "").strip()
+    if explicit:
+        ap = os.path.abspath(explicit)
+        return ap if os.path.isfile(ap) else None
+    cand = os.path.join(
+        os.path.dirname(os.path.abspath(args.local_output_dir)),
+        "data",
+        "feature_manifest.json",
+    )
+    return cand if os.path.isfile(cand) else None
+
+
+def load_feature_manifest(path: Optional[str]) -> Optional[Dict]:
+    if not path:
+        return None
+    with open(path, encoding="utf-8") as rf:
+        return json.load(rf)
+
+
+def export_rf_feature_importances(
+    model: RandomForestClassificationModel,
+    out_csv: str,
+    names: Optional[List[str]],
+) -> None:
+    arr = model.featureImportances.toArray()
+    ranked = sorted(enumerate(arr), key=lambda x: -x[1])
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+    with open(out_csv, "w", newline="", encoding="utf-8") as wf:
+        w = csv.writer(wf)
+        w.writerow(["rank", "feature_index", "feature_name", "importance"])
+        for rank, (idx, imp) in enumerate(ranked, start=1):
+            label = names[idx] if names is not None and idx < len(names) else f"feature_{idx}"
+            w.writerow([rank, idx, label, float(imp)])
+
+
+def extract_naive_bayes_model(best_model) -> Optional[NaiveBayesModel]:
+    if isinstance(best_model, PipelineModel):
+        last = best_model.stages[-1]
+        if isinstance(last, NaiveBayesModel):
+            return last
+    return None
+
+
+def export_nb_tables(
+    nb: NaiveBayesModel,
+    theta_csv: str,
+    pi_csv: str,
+    feature_names: Optional[List[str]],
+    class_labels: List[float],
+) -> None:
+    theta = nb.theta
+    nr = int(theta.numRows)
+    nc = int(theta.numCols)
+    if hasattr(theta, "toArray"):
+        mat = np.asarray(theta.toArray(), dtype=np.float64)
+        if mat.ndim == 1:
+            mat = mat.reshape(nr, nc)
+    else:
+        mat = np.asarray(theta.values, dtype=np.float64).reshape(nr, nc)
+    pi_vec = np.asarray(nb.pi.toArray(), dtype=np.float64)
+
+    os.makedirs(os.path.dirname(theta_csv), exist_ok=True)
+    with open(theta_csv, "w", newline="", encoding="utf-8") as wf:
+        w = csv.writer(wf)
+        w.writerow(
+            [
+                "class_index",
+                "label_value",
+                "feature_index",
+                "feature_name",
+                "log_conditional_probability",
+            ]
+        )
+        for i in range(nr):
+            lbl = ""
+            if i < len(class_labels):
+                lbl = class_labels[i]
+            for j in range(nc):
+                fname = (
+                    feature_names[j]
+                    if feature_names is not None and j < len(feature_names)
+                    else f"feature_nb_{j}"
+                )
+                w.writerow([i, lbl, j, fname, float(mat[i, j])])
+
+    with open(pi_csv, "w", newline="", encoding="utf-8") as wf:
+        w = csv.writer(wf)
+        w.writerow(["class_index", "label_value", "log_prior"])
+        for i, lp in enumerate(pi_vec):
+            lbl = class_labels[i] if i < len(class_labels) else ""
+            w.writerow([i, lbl, float(lp)])
+
+
+def write_interpretability_readme(out_dir: str) -> None:
+    path = os.path.join(out_dir, "README_interpretability.txt")
+    body = (
+        "Random Forest: rf_feature_importance.csv — Gini-based importance per tree feature; "
+        "higher values mean more splits using that coordinate.\n\n"
+        "Naive Bayes: nb_theta_long.csv — log P(feature_j | class_k) with Laplace smoothing "
+        "(Spark multinomial NB parameterization). Compare rows across class_index for the same "
+        "feature_name to see which rating level each discrete/OHE dimension favors.\n"
+        "nb_class_priors.csv — log pi(class_k).\n\n"
+        "NB is trained on features_nb (binary purchase flag + OHE only) when present.\n"
+    )
+    with open(path, "w", encoding="utf-8") as wf:
+        wf.write(body)
+
+
 def mirror_hdfs_csv(hdfs_dir: str, local_file: str) -> None:
     os.makedirs(os.path.dirname(local_file), exist_ok=True)
     cmd = f'hdfs dfs -cat "{hdfs_dir}"/*.csv > "{local_file}"'
@@ -173,11 +303,16 @@ def train_and_evaluate(
     test_df: DataFrame,
     args: argparse.Namespace,
     nb_features_col: str,
+    feature_manifest: Optional[Dict],
+    ordered_class_labels: List[float],
 ) -> DataFrame:
     results = []
     f1_evaluator = MulticlassClassificationEvaluator(
         labelCol="label", predictionCol="prediction", metricName="f1"
     )
+    interpret_dir = resolve_interpret_dir(args)
+    os.makedirs(interpret_dir, exist_ok=True)
+    write_interpretability_readme(interpret_dir)
 
     for model_id, model_type, estimator, grid in build_models(nb_features_col):
         cv = CrossValidator(
@@ -211,6 +346,31 @@ def train_and_evaluate(
                 metrics["weightedRecall"],
             )
         )
+
+        if model_id == "model1" and isinstance(best_model, RandomForestClassificationModel):
+            names = (feature_manifest or {}).get("features") if feature_manifest else None
+            export_rf_feature_importances(
+                best_model,
+                os.path.join(interpret_dir, "rf_feature_importance.csv"),
+                names,
+            )
+        elif model_id == "model2":
+            nb_model = extract_naive_bayes_model(best_model)
+            if nb_model is not None:
+                nb_names: Optional[List[str]] = None
+                if feature_manifest:
+                    nb_names = (
+                        feature_manifest.get("features_nb")
+                        if nb_features_col == "features_nb"
+                        else feature_manifest.get("features")
+                    )
+                export_nb_tables(
+                    nb_model,
+                    os.path.join(interpret_dir, "nb_theta_long.csv"),
+                    os.path.join(interpret_dir, "nb_class_priors.csv"),
+                    nb_names,
+                    ordered_class_labels,
+                )
 
     spark = train_df.sparkSession
     return spark.createDataFrame(
@@ -246,7 +406,21 @@ def main() -> None:
 
     nb_features_col = resolve_nb_feature_column(train_df)
 
-    evaluation_df = train_and_evaluate(train_df, test_df, args, nb_features_col)
+    manifest_path = resolve_feature_manifest_path(args)
+    feature_manifest = load_feature_manifest(manifest_path)
+    ordered_labels = [
+        float(r.label)
+        for r in train_df.select("label").distinct().orderBy("label").collect()
+    ]
+
+    evaluation_df = train_and_evaluate(
+        train_df,
+        test_df,
+        args,
+        nb_features_col,
+        feature_manifest,
+        ordered_labels,
+    )
     evaluation_hdfs_dir = f"{args.hdfs_output_base}/evaluation"
     evaluation_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(evaluation_hdfs_dir)
     mirror_hdfs_csv(evaluation_hdfs_dir, os.path.join(args.local_output_dir, "evaluation.csv"))

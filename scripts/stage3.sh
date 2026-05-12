@@ -233,6 +233,8 @@ echo "[Stage3] Step 2/3: train/tune Spark ML models on YARN"
   --hdfs-output-base "${HDFS_OUTPUT_BASE}" \
   --hdfs-model-base "${HDFS_MODEL_BASE}" \
   --local-output-dir "${ROOT}/output" \
+  --feature-manifest "${ROOT}/data/feature_manifest.json" \
+  --interpretability-dir "${ROOT}/output/interpretability" \
   --hive-metastore-uri "${HIVE_METASTORE_URI}" \
   --warehouse-dir "${WAREHOUSE_DIR}" \
   --cv-folds "${STAGE3_CV_FOLDS:-3}" \
@@ -241,9 +243,13 @@ echo "[Stage3] Step 2/3: train/tune Spark ML models on YARN"
 for artifact in \
   "${ROOT}/data/train.json" \
   "${ROOT}/data/test.json" \
+  "${ROOT}/data/feature_manifest.json" \
   "${ROOT}/output/model1_predictions.csv" \
   "${ROOT}/output/model2_predictions.csv" \
-  "${ROOT}/output/evaluation.csv"; do
+  "${ROOT}/output/evaluation.csv" \
+  "${ROOT}/output/interpretability/rf_feature_importance.csv" \
+  "${ROOT}/output/interpretability/nb_theta_long.csv" \
+  "${ROOT}/output/interpretability/nb_class_priors.csv"; do
   if [[ ! -s "${artifact}" ]]; then
     echo "Missing or empty artifact: ${artifact}" >&2
     exit 1
@@ -255,6 +261,7 @@ echo "[Stage3] Check:"
 echo " - local: ${ROOT}/data/train.json, ${ROOT}/data/test.json"
 echo " - local: ${ROOT}/output/model1_predictions.csv, ${ROOT}/output/model2_predictions.csv"
 echo " - local: ${ROOT}/output/evaluation.csv"
+echo " - interpretability: ${ROOT}/data/feature_manifest.json, ${ROOT}/output/interpretability/*.csv"
 echo " - features: verified_purchase + main_category + store(top-${STAGE3_STORE_TOP_K}) + numeric"
 echo " - hdfs : ${HDFS_DATA_BASE}/train, ${HDFS_DATA_BASE}/test"
 echo " - hdfs : ${HDFS_OUTPUT_BASE}/model1_predictions, ${HDFS_OUTPUT_BASE}/model2_predictions"

@@ -2,6 +2,7 @@
 """Prepare Stage III train/test artifacts from Hive feature layer on YARN."""
 
 import argparse
+import json
 import os
 
 from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
@@ -34,7 +35,66 @@ def parse_args() -> argparse.Namespace:
         default=float(os.environ.get("STAGE3_SAMPLE_FRACTION", "1.0")),
         help="Use a random fraction of rows before train/test split (1.0 = all). Env: STAGE3_SAMPLE_FRACTION",
     )
+    parser.add_argument(
+        "--feature-manifest-out",
+        default="",
+        help="Write JSON with human-readable feature names (same order as vectors). "
+        "Default: <dirname(local-train-json)>/feature_manifest.json",
+    )
     return parser.parse_args()
+
+
+def feature_manifest_path(args: argparse.Namespace) -> str:
+    out = (args.feature_manifest_out or "").strip()
+    if out:
+        return os.path.abspath(out)
+    return os.path.join(os.path.dirname(os.path.abspath(args.local_train_json)), "feature_manifest.json")
+
+
+def build_feature_name_lists(
+    numeric_feature_cols: list,
+    indexer_model,
+    encoder_model,
+) -> tuple:
+    """Align with VectorAssembler column order (full `features` and NB-only `features_nb`)."""
+    labels_main = list(indexer_model.labelsArray[0])
+    labels_store = list(indexer_model.labelsArray[1])
+    drop_last = bool(encoder_model.getDropLast())
+    sizes = list(encoder_model.categorySizes)
+
+    def ohe_dim(cat_count: int) -> int:
+        return cat_count - 1 if drop_last else cat_count
+
+    def ohe_names(labels: list, prefix: str, cat_count: int) -> list:
+        d = ohe_dim(cat_count)
+        names = []
+        for j in range(d):
+            lab = labels[j] if j < len(labels) else f"{prefix}_idx{j}"
+            names.append(f"{prefix}={lab}")
+        return names
+
+    main_ohe = ohe_names(labels_main, "main_category", sizes[0])
+    store_ohe = ohe_names(labels_store, "store", sizes[1])
+
+    tail = ["verified_purchase_num"] + main_ohe + store_ohe
+    features_nb = list(tail)
+    features = list(numeric_feature_cols) + tail
+    return features, features_nb
+
+
+def write_feature_manifest(path: str, features: list, features_nb: list) -> None:
+    payload = {
+        "features": features,
+        "features_nb": features_nb,
+        "description": (
+            "Feature names in dense vector index order. "
+            "OHE uses dropLast reference category (omitted from vector). "
+            "NB uses features_nb (no raw numerics)."
+        ),
+    }
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as wf:
+        json.dump(payload, wf, ensure_ascii=False, indent=2)
 
 
 def mirror_hdfs_json(hdfs_dir: str, local_path: str) -> None:
@@ -149,14 +209,22 @@ def main() -> None:
         outputCols=["main_category_idx", "store_bucketed_idx"],
         handleInvalid="keep",
     )
-    indexed = indexer.fit(prepared).transform(prepared)
+    indexer_model = indexer.fit(prepared)
+    indexed = indexer_model.transform(prepared)
 
     encoder = OneHotEncoder(
         inputCols=["main_category_idx", "store_bucketed_idx"],
         outputCols=["main_category_ohe", "store_bucketed_ohe"],
         handleInvalid="keep",
     )
-    encoded = encoder.fit(indexed).transform(indexed)
+    encoder_model = encoder.fit(indexed)
+    encoded = encoder_model.transform(indexed)
+
+    features_names, features_nb_names = build_feature_name_lists(
+        numeric_feature_cols, indexer_model, encoder_model
+    )
+    manifest_out = feature_manifest_path(args)
+    write_feature_manifest(manifest_out, features_names, features_nb_names)
 
     assembler_input_cols = (
         numeric_feature_cols + ["verified_purchase_num", "main_category_ohe", "store_bucketed_ohe"]
