@@ -131,6 +131,31 @@ stage3_resolve_spark_home() {
 
 stage3_resolve_spark_home || exit 1
 
+SPARK_ANTLR_CONF_ARGS=()
+stage3_spark_antlr_classpath() {
+  local jar="${STAGE3_ANTLR_RUNTIME_JAR:-}"
+  if [[ -z "${jar}" ]]; then
+    shopt -s nullglob
+    for candidate in "${SPARK_HOME}/jars"/antlr4-runtime-*.jar; do
+      jar="${candidate}"
+      break
+    done
+    shopt -u nullglob
+  fi
+  if [[ -n "${jar}" && -f "${jar}" ]]; then
+    SPARK_ANTLR_CONF_ARGS=(
+      --conf "spark.driver.extraClassPath=${jar}"
+      --conf "spark.executor.extraClassPath=${jar}"
+      --conf "spark.driver.userClassPathFirst=true"
+      --conf "spark.executor.userClassPathFirst=true"
+    )
+    echo "[Stage3] spark.{driver,executor}: extraClassPath ANTLR ${jar} + userClassPathFirst" >&2
+  else
+    echo "[Stage3] No antlr4-runtime jar under ${SPARK_HOME}/jars; set STAGE3_ANTLR_RUNTIME_JAR if SQL fails" >&2
+  fi
+}
+stage3_spark_antlr_classpath
+
 if ! "${PY_FOR_SPARK}" -c "import numpy" >/dev/null 2>&1; then
   echo "[Stage3] NumPy is required for PySpark ML on the driver (${PY_FOR_SPARK})." >&2
   echo "[Stage3] Install: ${PY_FOR_SPARK} -m pip install --user -r requirements.txt" >&2
@@ -167,6 +192,7 @@ fi
 echo "[Stage3] Step 1/3: build train/test artifacts from Hive feature layer"
 "${SPARK_SUBMIT_BIN}" --master yarn \
   "${SPARK_SUBMIT_PY_ARGS[@]}" \
+  "${SPARK_ANTLR_CONF_ARGS[@]}" \
   "${ROOT}/scripts/stage3_prepare_split.py" \
   --team "${TEAM}" \
   --database "${HIVE_DB_NAME}" \
@@ -184,6 +210,7 @@ echo "[Stage3] Step 1/3: build train/test artifacts from Hive feature layer"
 echo "[Stage3] Step 2/3: train/tune Spark ML models on YARN"
 "${SPARK_SUBMIT_BIN}" --master yarn \
   "${SPARK_SUBMIT_PY_ARGS[@]}" \
+  "${SPARK_ANTLR_CONF_ARGS[@]}" \
   "${ROOT}/scripts/stage3_ml_train.py" \
   --team "${TEAM}" \
   --train-path "${HDFS_DATA_BASE}/train" \
