@@ -67,6 +67,8 @@ export HIVE_PASSWORD=...   # required for beeline path
 bash scripts/stage3.sh
 ```
 
+If `spark-submit` fails inside `find_spark_home.py` with `find_spec("pyspark")` / `NoneType` `origin`, **Spark’s home is not discoverable**: set **`SPARK_HOME`** to the directory that contains `bin/spark-submit` and `python/pyspark` (and optionally **`PYSPARK_PYTHON`** to a Python 3 on the cluster). `scripts/stage3.sh` tries to infer `SPARK_HOME` from the resolved `spark-submit` path; when that fails, define `SPARK_HOME` in `.env`.
+
 Overrides (aligned with `scripts/stage3.sh`):
 
 ```bash

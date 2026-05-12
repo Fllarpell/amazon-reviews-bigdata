@@ -47,6 +47,55 @@ else
   exit 1
 fi
 
+# spark-submit runs find_spark_home.py, which needs SPARK_HOME or an importable pyspark on PYSPARK_PYTHON.
+stage3_export_spark_pythonpath() {
+  local py4j
+  export PYTHONPATH="${SPARK_HOME}/python${PYTHONPATH:+:${PYTHONPATH}}"
+  shopt -s nullglob
+  for py4j in "${SPARK_HOME}"/python/lib/py4j-*-src.zip; do
+    export PYTHONPATH="${py4j}:${PYTHONPATH}"
+    break
+  done
+  shopt -u nullglob
+}
+
+stage3_resolve_spark_home() {
+  local sub sub_real candidate
+  if [[ -n "${SPARK_HOME:-}" ]]; then
+    if [[ -d "${SPARK_HOME}/python/pyspark" ]]; then
+      export SPARK_HOME
+      stage3_export_spark_pythonpath
+      echo "[Stage3] Using SPARK_HOME=${SPARK_HOME}"
+      return 0
+    fi
+    echo "[Stage3] SPARK_HOME=${SPARK_HOME} is set but ${SPARK_HOME}/python/pyspark is missing; fix SPARK_HOME." >&2
+    return 1
+  fi
+
+  sub="${SPARK_SUBMIT_BIN}"
+  if [[ "${sub}" != /* ]]; then
+    sub="$(command -v "${sub}" 2>/dev/null || true)"
+  fi
+  if [[ -z "${sub}" || ! -e "${sub}" ]]; then
+    echo "[Stage3] Cannot locate spark-submit to infer SPARK_HOME; set SPARK_HOME in the environment or .env." >&2
+    return 1
+  fi
+  sub_real="$(readlink -f "${sub}" 2>/dev/null || readlink "${sub}" 2>/dev/null || echo "${sub}")"
+  candidate="$(cd "$(dirname "${sub_real}")/.." && pwd)"
+  if [[ -d "${candidate}/python/pyspark" ]]; then
+    export SPARK_HOME="${candidate}"
+    stage3_export_spark_pythonpath
+    echo "[Stage3] SPARK_HOME was unset; inferred SPARK_HOME=${SPARK_HOME}"
+    return 0
+  fi
+
+  echo "[Stage3] Set SPARK_HOME in .env to your Spark root (directory containing bin/spark-submit and python/pyspark)." >&2
+  echo "[Stage3] spark-submit is ${sub_real}; tried ${candidate} — not a Spark installation layout." >&2
+  return 1
+}
+
+stage3_resolve_spark_home || exit 1
+
 if ! command -v hdfs >/dev/null 2>&1; then
   echo "hdfs is required for Stage 3 HDFS paths (mkdir + spark I/O)." >&2
   exit 1
