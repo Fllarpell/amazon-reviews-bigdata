@@ -23,6 +23,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hive-metastore-uri", default="thrift://hadoop-02.uni.innopolis.ru:9883")
     parser.add_argument("--warehouse-dir", default="project/hive/warehouse")
     parser.add_argument("--store-top-k", type=int, default=200)
+    parser.add_argument(
+        "--features-hdfs-path",
+        default="",
+        help="Parquet table directory (Hive LOCATION); avoids spark.table() SQL parser",
+    )
     return parser.parse_args()
 
 
@@ -35,12 +40,16 @@ def mirror_hdfs_json(hdfs_dir: str, local_path: str) -> None:
 
 
 def build_spark(args: argparse.Namespace) -> SparkSession:
-    return (
+    b = (
         SparkSession.builder.appName(f"{args.team} - Stage3 Split")
         .master("yarn")
-        .config("hive.metastore.uris", args.hive_metastore_uri)
         .config("spark.sql.warehouse.dir", args.warehouse_dir)
         .config("spark.sql.avro.compression.codec", "snappy")
+    )
+    if (args.features_hdfs_path or "").strip():
+        return b.getOrCreate()
+    return (
+        b.config("hive.metastore.uris", args.hive_metastore_uri)
         .enableHiveSupport()
         .getOrCreate()
     )
@@ -51,7 +60,11 @@ def main() -> None:
     spark = build_spark(args)
     spark.sparkContext.setLogLevel("WARN")
 
-    source = spark.table(f"{args.database}.{args.feature_table}")
+    feat_path = (args.features_hdfs_path or "").strip()
+    if feat_path:
+        source = spark.read.parquet(feat_path)
+    else:
+        source = spark.table(f"{args.database}.{args.feature_table}")
     if args.label_col not in source.columns:
         raise ValueError(f"Label column '{args.label_col}' is missing in feature table")
 

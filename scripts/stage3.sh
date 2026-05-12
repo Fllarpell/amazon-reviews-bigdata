@@ -171,6 +171,7 @@ echo "[Stage3] Step 1/3: build train/test artifacts from Hive feature layer"
   --team "${TEAM}" \
   --database "${HIVE_DB_NAME}" \
   --feature-table "${FEATURE_TABLE}" \
+  --features-hdfs-path "${HIVE_ML_FEATURES_PATH}" \
   --label-col "${LABEL_COL}" \
   --hive-metastore-uri "${HIVE_METASTORE_URI}" \
   --warehouse-dir "${WAREHOUSE_DIR}" \
