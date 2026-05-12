@@ -67,10 +67,10 @@ stage3_try_known_spark_roots() {
     IFS=':' read -ra roots <<< "${SPARK_HOME_CANDIDATES}"
   fi
   roots+=(
-    "/usr/hdp/current/spark3-client"
-    "/usr/hdp/current/spark2-client"
     "/usr/lib/spark3"
     "/usr/lib/spark"
+    "/usr/hdp/current/spark3-client"
+    "/usr/hdp/current/spark2-client"
     "/opt/spark"
   )
   for cand in "${roots[@]}"; do
@@ -127,6 +127,14 @@ stage3_resolve_spark_home() {
 }
 
 stage3_resolve_spark_home || exit 1
+
+# pyspark.ml imports numpy on the Spark driver; cluster Pythons often omit it from the base image.
+if ! "${PY_FOR_SPARK}" -c "import numpy" >/dev/null 2>&1; then
+  echo "[Stage3] NumPy is required for PySpark ML on the driver (same interpreter as PYSPARK_PYTHON)." >&2
+  echo "[Stage3] Install with: ${PY_FOR_SPARK} -m pip install --user numpy" >&2
+  echo "[Stage3] Or from repo: pip install -r requirements.txt (use the same python you set as PYSPARK_PYTHON)." >&2
+  exit 1
+fi
 
 if ! command -v hdfs >/dev/null 2>&1; then
   echo "hdfs is required for Stage 3 HDFS paths (mkdir + spark I/O)." >&2
