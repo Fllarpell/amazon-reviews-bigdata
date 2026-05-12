@@ -132,29 +132,37 @@ stage3_resolve_spark_home() {
 stage3_resolve_spark_home || exit 1
 
 SPARK_ANTLR_CONF_ARGS=()
-stage3_spark_antlr_classpath() {
-  local jar="${STAGE3_ANTLR_RUNTIME_JAR:-}"
-  if [[ -z "${jar}" ]]; then
+stage3_spark_yarn_classpath_pref() {
+  local extra="${STAGE3_DRIVER_EXTRA_CLASSPATH:-}"
+  if [[ -z "${extra}" ]]; then
+    local j cp=""
     shopt -s nullglob
-    for candidate in "${SPARK_HOME}/jars"/antlr4-runtime-*.jar; do
-      jar="${candidate}"
+    for j in "${SPARK_HOME}/jars"/antlr4-runtime-*.jar; do
+      [[ -n "${cp}" ]] && cp="${cp}:"
+      cp="${cp}${j}"
+      break
+    done
+    for j in "${SPARK_HOME}/jars"/lz4-java-*.jar; do
+      [[ -n "${cp}" ]] && cp="${cp}:"
+      cp="${cp}${j}"
       break
     done
     shopt -u nullglob
+    extra="${cp}"
   fi
-  if [[ -n "${jar}" && -f "${jar}" ]]; then
+  if [[ -n "${extra}" ]]; then
     SPARK_ANTLR_CONF_ARGS=(
-      --conf "spark.driver.extraClassPath=${jar}"
-      --conf "spark.executor.extraClassPath=${jar}"
+      --conf "spark.driver.extraClassPath=${extra}"
+      --conf "spark.executor.extraClassPath=${extra}"
       --conf "spark.driver.userClassPathFirst=true"
       --conf "spark.executor.userClassPathFirst=true"
     )
-    echo "[Stage3] spark.{driver,executor}: extraClassPath ANTLR ${jar} + userClassPathFirst" >&2
+    echo "[Stage3] spark extraClassPath + userClassPathFirst: ${extra}" >&2
   else
-    echo "[Stage3] No antlr4-runtime jar under ${SPARK_HOME}/jars; set STAGE3_ANTLR_RUNTIME_JAR if SQL fails" >&2
+    echo "[Stage3] No Spark jars for extraClassPath; set STAGE3_DRIVER_EXTRA_CLASSPATH if ANTLR/LZ4 errors" >&2
   fi
 }
-stage3_spark_antlr_classpath
+stage3_spark_yarn_classpath_pref
 
 if ! "${PY_FOR_SPARK}" -c "import numpy" >/dev/null 2>&1; then
   echo "[Stage3] NumPy is required for PySpark ML on the driver (${PY_FOR_SPARK})." >&2
