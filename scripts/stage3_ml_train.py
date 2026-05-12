@@ -7,8 +7,11 @@ stores predictions and evaluation to HDFS, and mirrors CSV artifacts locally.
 """
 
 import argparse
+import math
 import os
 from typing import Dict, List, Tuple
+
+import numpy as np
 
 from pyspark.ml.classification import (
     NaiveBayes,
@@ -84,13 +87,21 @@ def pad_feature_vectors(df: DataFrame, dim: int) -> DataFrame:
     def pad(vec):
         if vec is None:
             return Vectors.dense([0.0] * dim)
-        arr = vec.toArray()
-        n = len(arr)
-        if n == dim:
-            return Vectors.dense(arr)
+        raw = np.asarray(vec.toArray(), dtype=np.float64)
+        n = int(raw.shape[0])
         if n < dim:
-            return Vectors.dense(list(arr) + [0.0] * (dim - n))
-        return Vectors.dense(arr[:dim])
+            raw = np.concatenate([raw, np.zeros(dim - n, dtype=np.float64)])
+        elif n > dim:
+            raw = raw[:dim]
+        cleaned = np.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0)
+        cleaned = np.maximum(cleaned, 0.0)
+        out = []
+        for x in cleaned.flat:
+            v = float(x)
+            if not math.isfinite(v) or v < 0.0:
+                v = 0.0
+            out.append(v)
+        return Vectors.dense(out)
 
     udf_pad = F.udf(pad, VectorUDT())
     return df.withColumn("features", udf_pad(F.col("features")))
@@ -105,10 +116,8 @@ def build_models() -> List[Tuple[str, str, object, List[Dict]]]:
         .build()
     )
 
-    nb = NaiveBayes(labelCol="label", featuresCol="features")
-    nb_grid = ParamGridBuilder().addGrid(nb.smoothing, [0.5, 1.0, 2.0]).addGrid(
-        nb.modelType, ["multinomial", "bernoulli"]
-    ).build()
+    nb = NaiveBayes(labelCol="label", featuresCol="features", modelType="multinomial")
+    nb_grid = ParamGridBuilder().addGrid(nb.smoothing, [0.25, 0.5, 1.0, 2.0]).build()
 
     return [
         ("model1", "random_forest", rf, rf_grid),
