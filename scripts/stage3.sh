@@ -38,6 +38,14 @@ else
   exit 1
 fi
 
+if ! command -v hdfs >/dev/null 2>&1; then
+  echo "hdfs is required for Stage 3 HDFS paths (mkdir + spark I/O)." >&2
+  exit 1
+fi
+
+echo "[Stage3] Ensure HDFS directories exist: ${HDFS_DATA_BASE}, ${HDFS_OUTPUT_BASE}, ${HDFS_MODEL_BASE}"
+hdfs dfs -mkdir -p "${HDFS_DATA_BASE}" "${HDFS_OUTPUT_BASE}" "${HDFS_MODEL_BASE}"
+
 if [[ "${RUN_HIVE_FEATURES}" == "1" || "${RUN_HIVE_FEATURES}" == "true" || "${RUN_HIVE_FEATURES}" == "yes" ]]; then
   echo "[Stage3] Step 0/3: create Hive ML feature table"
   if [[ -z "${HIVE_PASSWORD:-}" ]]; then
