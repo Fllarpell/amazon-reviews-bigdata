@@ -13,11 +13,13 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
+from pyspark.ml import Pipeline
 from pyspark.ml.classification import (
     NaiveBayes,
     RandomForestClassifier,
 )
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+from pyspark.ml.feature import MinMaxScaler
 from pyspark.ml.functions import array_to_vector, vector_to_array
 from pyspark.ml.linalg import VectorUDT, Vectors
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
@@ -124,12 +126,20 @@ def build_models() -> List[Tuple[str, str, object, List[Dict]]]:
         .build()
     )
 
-    nb = NaiveBayes(labelCol="label", featuresCol="features", modelType="multinomial")
+    # Multinomial NB expects nonnegative count-like magnitudes; raw mixed-scale
+    # numerics + one-hot would dominate (year, price). Scale to [0,1] first.
+    nb_scaler = MinMaxScaler(inputCol="features", outputCol="scaledFeatures")
+    nb = NaiveBayes(
+        labelCol="label",
+        featuresCol="scaledFeatures",
+        modelType="multinomial",
+    )
+    nb_pipeline = Pipeline(stages=[nb_scaler, nb])
     nb_grid = ParamGridBuilder().addGrid(nb.smoothing, [0.25, 0.5, 1.0, 2.0]).build()
 
     return [
         ("model1", "random_forest", rf, rf_grid),
-        ("model2", "naive_bayes", nb, nb_grid),
+        ("model2", "naive_bayes", nb_pipeline, nb_grid),
     ]
 
 
